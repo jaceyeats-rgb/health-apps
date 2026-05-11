@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Workout Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e1117;
+  --surface: #161b24;
+  --surface2: #1e2535;
+  --border: #2a3347;
+  --accent: #3dd68c;
+  --accent2: #f5a623;
+  --accent3: #5b8dee;
+  --red: #f05252;
+  --text: #e8edf5;
+  --text2: #8a95a8;
+  --text3: #4a5568;
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; overflow-x:hidden; }
+
+/* HEADER */
+.app-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 20px 12px;
+  position: sticky; top:0; z-index:100;
+}
+.header-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.app-title { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:2px; color:var(--accent); }
+.week-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius:20px;
+  padding: 5px 12px;
+  font-family:'DM Mono',monospace;
+  font-size:11px;
+  color:var(--text2);
+}
+.day-tabs {
+  display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;
+  scrollbar-width:none;
+}
+.day-tabs::-webkit-scrollbar { display:none; }
+.day-tab {
+  flex-shrink:0;
+  padding: 7px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+  font-family:'DM Mono',monospace;
+  letter-spacing:0.5px;
+  cursor:pointer;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  transition: all 0.2s;
+  text-transform:uppercase;
+}
+.day-tab.active { background:var(--accent); color:#000; border-color:var(--accent); }
+.day-tab.rest { opacity:0.5; }
+.day-tab.today { border-color: var(--accent2); }
+
+/* CONTENT */
+.content { padding: 16px 16px 100px; max-width:520px; margin:0 auto; }
+
+/* DAY HEADER CARD */
+.day-hero {
+  background: linear-gradient(135deg, var(--surface2) 0%, #1a2438 100%);
+  border: 1px solid var(--border);
+  border-radius:16px;
+  padding:20px;
+  margin-bottom:16px;
+  position:relative;
+  overflow:hidden;
+}
+.day-hero::before {
+  content:'';
+  position:absolute; top:-30px; right:-30px;
+  width:120px; height:120px;
+  border-radius:50%;
+  background: rgba(61,214,140,0.06);
+}
+.day-hero-label { font-family:'DM Mono',monospace; font-size:11px; color:var(--text2); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+.day-hero-title { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:1px; color:var(--text); margin-bottom:4px; }
+.day-hero-sub { font-size:13px; color:var(--text2); margin-bottom:14px; }
+.day-hero-meta { display:flex; gap:10px; flex-wrap:wrap; }
+.meta-chip {
+  background:var(--bg);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:4px 12px;
+  font-size:11px;
+  font-family:'DM Mono',monospace;
+  color:var(--text2);
+}
+.meta-chip.green { border-color:rgba(61,214,140,0.4); color:var(--accent); }
+.meta-chip.amber { border-color:rgba(245,166,35,0.4); color:var(--accent2); }
+
+/* PROGRESS BAR */
+.progress-wrap { margin-bottom:16px; }
+.progress-label { display:flex; justify-content:space-between; font-size:12px; color:var(--text2); margin-bottom:6px; }
+.progress-bar { height:6px; background:var(--surface2); border-radius:3px; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),#5bead4); border-radius:3px; transition:width 0.4s ease; }
+
+/* PRE-WORKOUT BOX */
+.pre-workout {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:3px solid var(--accent2);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:16px;
+}
+.pre-workout h4 { font-size:12px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:1px; color:var(--accent2); margin-bottom:8px; }
+.pre-workout p { font-size:13px; color:var(--text2); line-height:1.6; }
+
+/* SECTION LABEL */
+.section-label {
+  font-family:'DM Mono',monospace;
+  font-size:11px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--text3);
+  margin: 20px 0 10px;
+}
+
+/* EXERCISE CARD */
+.exercise-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px;
+  margin-bottom:10px;
+  overflow:hidden;
+  transition: border-color 0.2s;
+}
+.exercise-card.completed { border-color:rgba(61,214,140,0.35); }
+.exercise-card.completed .ex-header { background:rgba(61,214,140,0.06); }
+
+.ex-header {
+  display:flex; align-items:center; gap:12px;
+  padding:14px 16px;
+  cursor:pointer;
+}
+.ex-check {
+  width:24px; height:24px; border-radius:50%;
+  border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:all 0.2s;
+  font-size:12px;
+}
+.exercise-card.completed .ex-check { background:var(--accent); border-color:var(--accent); color:#000; }
+.ex-info { flex:1; }
+.ex-name { font-weight:600; font-size:15px; color:var(--text); }
+.ex-sets { font-size:12px; color:var(--text2); font-family:'DM Mono',monospace; margin-top:2px; }
+.ex-expand { color:var(--text3); font-size:18px; transition:transform 0.2s; }
+.ex-expand.open { transform:rotate(180deg); }
+
+.ex-body { padding:0 16px 14px; display:none; }
+.ex-body.open { display:block; }
+
+/* SETS TRACKER */
+.sets-tracker { margin-bottom:12px; }
+.set-row {
+  display:grid;
+  grid-template-columns:36px 1fr 1fr 44px;
+  gap:8px;
+  align-items:center;
+  padding:8px 0;
+  border-bottom:1px solid var(--border);
+}
+.set-row:last-child { border-bottom:none; }
+.set-num { font-family:'DM Mono',monospace; font-size:12px; color:var(--text3); text-align:center; }
+.set-input {
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px 10px;
+  font-size:14px;
+  color:var(--text);
+  text-align:center;
+  font-family:'DM Mono',monospace;
+  width:100%;
+  transition:border-color 0.2s;
+}
+.set-input:focus { outline:none; border-color:var(--accent); }
+.set-input::placeholder { color:var(--text3); font-size:12px; }
+.set-done-btn {
+  width:36px; height:36px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text3);
+  cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-size:16px;
+  transition:all 0.2s;
+}
+.set-done-btn.done { background:rgba(61,214,140,0.15); border-color:var(--accent); color:var(--accent); }
+.set-labels {
+  display:grid;
+  grid-template-columns:36px 1fr 1fr 44px;
+  gap:8px;
+  margin-bottom:6px;
+}
+.set-label { font-size:10px; color:var(--text3); font-family:'DM Mono',monospace; text-align:center; text-transform:uppercase; letter-spacing:0.5px; }
+
+.ex-note {
+  background:rgba(91,141,238,0.08);
+  border:1px solid rgba(91,141,238,0.2);
+  border-radius:8px;
+  padding:10px 12px;
+  font-size:12px;
+  color:#8aabf0;
+  line-height:1.6;
+  margin-bottom:10px;
+}
+.ex-tip { font-size:12px; color:var(--text2); line-height:1.6; margin-bottom:8px; }
+
+/* REST TIMER */
+.rest-timer-btn {
+  display:flex; align-items:center; gap:8px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 14px;
+  cursor:pointer;
+  font-size:13px;
+  color:var(--text2);
+  transition:all 0.2s;
+  width:100%;
+  margin-top:8px;
+}
+.rest-timer-btn:hover { border-color:var(--accent3); color:var(--accent3); }
+.rest-timer-btn .timer-icon { font-size:16px; }
+
+/* TIMER MODAL */
+.timer-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.85);
+  display:flex; align-items:center; justify-content:center;
+  z-index:200;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.2s;
+}
+.timer-overlay.show { opacity:1; pointer-events:all; }
+.timer-modal {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:24px;
+  padding:40px 36px;
+  text-align:center;
+  width:300px;
+  transform:scale(0.9);
+  transition:transform 0.2s;
+}
+.timer-overlay.show .timer-modal { transform:scale(1); }
+.timer-label { font-family:'DM Mono',monospace; font-size:11px; color:var(--text2); letter-spacing:2px; text-transform:uppercase; margin-bottom:16px; }
+.timer-display {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:80px;
+  color:var(--accent);
+  line-height:1;
+  margin-bottom:8px;
+  letter-spacing:2px;
+}
+.timer-display.warning { color:var(--accent2); }
+.timer-display.done { color:var(--red); }
+.timer-progress-ring { margin:0 auto 20px; display:block; }
+.timer-ring-bg { fill:none; stroke:var(--surface2); stroke-width:8; }
+.timer-ring-fill { fill:none; stroke:var(--accent); stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1s linear; transform:rotate(-90deg); transform-origin:50% 50%; }
+.timer-ring-fill.warning { stroke:var(--accent2); }
+.timer-actions { display:flex; gap:10px; justify-content:center; }
+.timer-btn {
+  padding:12px 24px;
+  border-radius:12px;
+  border:none;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.timer-btn-primary { background:var(--accent); color:#000; }
+.timer-btn-secondary { background:var(--surface2); color:var(--text2); border:1px solid var(--border); }
+.timer-btn:active { transform:scale(0.96); }
+.timer-msg { font-size:13px; color:var(--text2); margin-top:12px; min-height:18px; }
+
+/* WORKOUT STOPWATCH */
+.stopwatch-bar {
+  position:fixed;
+  bottom:0; left:0; right:0;
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  padding:12px 20px;
+  display:flex; align-items:center; justify-content:space-between;
+  z-index:100;
+  max-width:520px;
+  margin:0 auto;
+}
+.sw-time {
+  font-family:'Bebas Neue',sans-serif;
+  font-size:28px;
+  letter-spacing:2px;
+  color:var(--accent);
+}
+.sw-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--text3); letter-spacing:1px; text-transform:uppercase; }
+.sw-controls { display:flex; gap:8px; }
+.sw-btn {
+  padding:8px 18px;
+  border-radius:10px;
+  border:none;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  transition:all 0.15s;
+}
+.sw-btn:active { transform:scale(0.95); }
+.sw-start { background:var(--accent); color:#000; }
+.sw-pause { background:var(--accent2); color:#000; }
+.sw-stop { background:var(--surface2); color:var(--text2); border:1px solid var(--border); }
+
+/* HR ZONE */
+.hr-zone-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:16px;
+}
+.hr-zone-title { font-family:'DM Mono',monospace; font-size:11px; color:var(--text2); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:10px; }
+.hr-zones { display:flex; gap:6px; }
+.hr-zone {
+  flex:1; border-radius:8px; padding:10px 6px; text-align:center;
+  border:1px solid transparent;
+}
+.zone1 { background:rgba(91,141,238,0.1); border-color:rgba(91,141,238,0.2); }
+.zone2 { background:rgba(61,214,140,0.1); border-color:rgba(61,214,140,0.2); }
+.zone3 { background:rgba(245,166,35,0.1); border-color:rgba(245,166,35,0.2); }
+.zone4 { background:rgba(240,82,82,0.1); border-color:rgba(240,82,82,0.2); }
+.zone-name { font-size:10px; font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+.zone1 .zone-name { color:#5b8dee; }
+.zone2 .zone-name { color:var(--accent); }
+.zone3 .zone-name { color:var(--accent2); }
+.zone4 .zone-name { color:var(--red); }
+.zone-bpm { font-size:13px; font-weight:700; color:var(--text); }
+.zone-label { font-size:10px; color:var(--text2); margin-top:2px; }
+
+/* RECOVERY SECTION */
+.recovery-card {
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-left:3px solid var(--accent3);
+  border-radius:12px;
+  padding:14px 16px;
+  margin-bottom:10px;
+}
+.recovery-header { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.recovery-check {
+  width:22px; height:22px; border-radius:6px;
+  border:2px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0; transition:all 0.2s; font-size:11px;
+}
+.recovery-check.done { background:var(--accent3); border-color:var(--accent3); color:white; }
+.recovery-title { font-weight:600; font-size:14px; }
+.recovery-detail { font-size:13px; color:var(--text2); line-height:1.6; }
+
+/* COMPLETE BUTTON */
+.complete-workout-btn {
+  width:100%;
+  padding:18px;
+  background:linear-gradient(135deg,var(--accent),#5bead4);
+  color:#000;
+  border:none;
+  border-radius:16px;
+  font-size:16px;
+  font-weight:700;
+  font-family:'Bebas Neue',sans-serif;
+  letter-spacing:2px;
+  cursor:pointer;
+  margin-top:24px;
+  transition:all 0.2s;
+}
+.complete-workout-btn:active { transform:scale(0.98); }
+.complete-workout-btn:disabled { background:var(--surface2); color:var(--text3); border:1px solid var(--border); cursor:not-allowed; }
+
+/* REST DAY */
+.rest-day {
+  text-align:center;
+  padding:60px 20px;
+}
+.rest-day .rest-icon { font-size:64px; margin-bottom:20px; }
+.rest-day h2 { font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:2px; color:var(--accent); margin-bottom:10px; }
+.rest-day p { font-size:14px; color:var(--text2); line-height:1.8; max-width:300px; margin:0 auto; }
+
+/* COMPLETE OVERLAY */
+.complete-overlay {
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.9);
+  display:flex; align-items:center; justify-content:center;
+  z-index:300;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.3s;
+}
+.complete-overlay.show { opacity:1; pointer-events:all; }
+.complete-modal {
+  background:var(--surface);
+  border:1px solid var(--accent);
+  border-radius:24px;
+  padding:40px 32px;
+  text-align:center;
+  width:320px;
+  transform:scale(0.9) translateY(20px);
+  transition:all 0.3s;
+}
+.complete-overlay.show .complete-modal { transform:scale(1) translateY(0); }
+.complete-icon { font-size:56px; margin-bottom:16px; }
+.complete-title { font-family:'Bebas Neue',sans-serif; font-size:42px; color:var(--accent); letter-spacing:2px; margin-bottom:8px; }
+.complete-stats { display:flex; gap:16px; justify-content:center; margin:20px 0; }
+.complete-stat { background:var(--surface2); border-radius:12px; padding:14px 18px; }
+.complete-stat .cs-val { font-family:'Bebas Neue',sans-serif; font-size:28px; color:var(--text); }
+.complete-stat .cs-label { font-size:10px; color:var(--text2); font-family:'DM Mono',monospace; text-transform:uppercase; }
+.complete-summary { font-size:13px; color:var(--text2); line-height:1.7; margin-bottom:20px; }
+.complete-close {
+  background:var(--accent); color:#000;
+  border:none; border-radius:12px;
+  padding:14px 32px;
+  font-size:15px; font-weight:700;
+  cursor:pointer; width:100%;
+}
+
+/* NOTES AREA */
+.notes-area {
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+  font-size:13px;
+  color:var(--text);
+  width:100%;
+  min-height:60px;
+  resize:none;
+  font-family:'DM Sans',sans-serif;
+  margin-top:8px;
+}
+.notes-area:focus { outline:none; border-color:var(--accent); }
+.notes-area::placeholder { color:var(--text3); }
+
+/* WEEK TOGGLE */
+.week-toggle {
+  display:flex; gap:8px; margin-bottom:14px;
+}
+.week-btn {
+  flex:1; padding:10px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--text2);
+  cursor:pointer;
+  transition:all 0.2s;
+  font-family:'DM Mono',monospace;
+}
+.week-btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div class="header-top">
+    <div class="app-title">⚡ WORKOUT</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="showSyncPanel()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:20px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace">⚙ SYNC</button>
+      <div class="week-badge" id="weekBadge">WEEK A</div>
+    </div>
+  </div>
+  <div class="day-tabs" id="dayTabs"></div>
+</div>
+
+<div class="content" id="mainContent"></div>
+
+<!-- Rest Timer Modal -->
+<div class="timer-overlay" id="timerOverlay">
+  <div class="timer-modal">
+    <div class="timer-label">REST TIMER</div>
+    <svg class="timer-progress-ring" width="120" height="120" viewBox="0 0 120 120">
+      <circle class="timer-ring-bg" cx="60" cy="60" r="52"/>
+      <circle class="timer-ring-fill" id="timerRingFill" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="0"/>
+    </svg>
+    <div class="timer-display" id="timerDisplay">1:00</div>
+    <div class="timer-msg" id="timerMsg">Rest and breathe</div>
+    <div class="timer-actions">
+      <button class="timer-btn timer-btn-secondary" onclick="closeTimer()">Skip</button>
+      <button class="timer-btn timer-btn-primary" id="timerToggleBtn" onclick="toggleTimer()">Pause</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complete Overlay -->
+<div class="complete-overlay" id="completeOverlay">
+  <div class="complete-modal">
+    <div class="complete-icon">🏆</div>
+    <div class="complete-title">CRUSHED IT</div>
+    <div class="complete-stats" id="completeStats"></div>
+    <div class="complete-summary" id="completeSummary"></div>
+    <button class="complete-close" onclick="closeComplete()">Done — Log Saved ✓</button>
+  </div>
+</div>
+
+<!-- Sync Panel -->
+<div class="timer-overlay" id="syncOverlay">
+  <div class="timer-modal" style="width:340px;text-align:left;padding:28px">
+    <div class="timer-label" style="text-align:center">☁️ GOOGLE SHEETS SYNC</div>
+    <div style="font-size:12px;color:var(--text2);margin:14px 0 6px">Web App URL:</div>
+    <input type="text" id="swSyncUrl" placeholder="https://script.google.com/macros/s/..." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:11px;font-family:'DM Mono',monospace;color:var(--text);box-sizing:border-box">
+    <div style="display:flex;align-items:center;gap:8px;margin-top:14px">
+      <input type="checkbox" id="swAutoSync" style="width:18px;height:18px">
+      <label for="swAutoSync" style="font-size:13px;color:var(--text2)">Auto-sync workouts</label>
+    </div>
+    <div id="swSyncStatus" style="font-size:12px;color:var(--text2);margin-top:12px;min-height:18px"></div>
+    <div style="display:flex;gap:8px;margin-top:18px">
+      <button class="timer-btn timer-btn-secondary" onclick="closeSyncPanel()">Close</button>
+      <button class="timer-btn timer-btn-secondary" onclick="testSyncWorkout()" style="background:var(--accent2);color:#000">Test</button>
+      <button class="timer-btn timer-btn-primary" onclick="saveSyncWorkout()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Workout Stopwatch -->
+<div class="stopwatch-bar">
+  <div>
+    <div class="sw-label">Workout Time</div>
+    <div class="sw-time" id="swDisplay">00:00</div>
+  </div>
+  <div class="sw-controls">
+    <button class="sw-btn sw-stop" id="swResetBtn" onclick="resetStopwatch()">Reset</button>
+    <button class="sw-btn sw-start" id="swStartBtn" onclick="toggleStopwatch()">Start</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// DATA: ALL WORKOUT PLANS
+// ═══════════════════════════════════════
+const WORKOUTS = {
+  A: {
+    MON: {
+      title: "Upper Body Push",
+      subtitle: "Chest · Shoulders · Triceps",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + 1 tbsp peanut butter OR small Greek yogurt — eat 20–30 min before leaving. Drink 12–16oz water immediately upon waking.",
+      warmup: "8-min dynamic warm-up: arm circles (10 each direction) · band pull-aparts (15) · bodyweight squats (15) · shoulder rolls · hip rotations",
+      exercises: [
+        { name:"Chest Press Machine", sets:3, reps:"12", rest:60, note:"Start conservatively — form over weight. Full range of motion. Slow on the way down (2–3 sec eccentric).", tip:"Adjust seat so handles align with mid-chest. Keep shoulder blades retracted throughout." },
+        { name:"Shoulder Press Machine", sets:3, reps:"12", rest:60, note:"Keep core braced. Don't arch your lower back excessively.", tip:"Seated is fine. Control the weight through full range." },
+        { name:"Cable Chest Fly / Pec Deck", sets:3, reps:"15", rest:45, note:"This targets the inner chest specifically. Key for chest fat reduction and definition.", tip:"Slight bend in elbow, squeeze at the midpoint. Feel the stretch on the open position." },
+        { name:"Tricep Pushdown (Cable)", sets:3, reps:"15", rest:45, note:"Keep elbows pinned to your sides — they should not flare out.", tip:"Use a rope attachment if available for better range of motion." },
+        { name:"Lateral Raise", sets:3, reps:"15", rest:45, note:"Light weight only — shoulders are a small muscle group and easy to strain.", tip:"Lead with your elbows, not your hands. Stop at shoulder height." },
+        { name:"Dead Bug (Core)", sets:3, reps:"10 each side", rest:30, note:"Slow and controlled. Lower back must stay pressed into the floor throughout.", tip:"If your lower back lifts, the range of motion is too large. Reduce it." }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 minutes immediately after workout, before sauna. Remove as much clothing as comfortable — light needs skin contact. Keep eyes closed.", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15 minutes at gym setting. Drink 16oz water before entering. Exit if dizzy or uncomfortable. 5-min cool-down before shower.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake (whey isolate + oat milk + banana) OR 2–3 scrambled eggs + toast. Target: 25–35g protein."
+    },
+    WED: {
+      title: "Lower Body & Core",
+      subtitle: "Legs · Glutes · Abs",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + 1 tbsp peanut butter OR small Greek yogurt — eat 20–30 min before leaving. Drink 12–16oz water upon waking.",
+      warmup: "8-min dynamic warm-up: leg swings front/back (10 each) · hip circles (10 each direction) · bodyweight squats (15) · walking lunges (10) · calf raises (20)",
+      exercises: [
+        { name:"Leg Press Machine", sets:3, reps:"12", rest:60, note:"Primary lower body compound movement. Your legs are your largest muscle group — the biggest driver of metabolic rate.", tip:"Feet shoulder-width, toes slightly out. Don't lock knees at the top. Full range — thighs parallel to floor at bottom." },
+        { name:"Leg Curl Machine (Hamstrings)", sets:3, reps:"12", rest:60, note:"Hamstring strength prevents knee injury and supports lower back.", tip:"Slow and controlled. Curl fully, extend fully." },
+        { name:"Leg Extension Machine (Quads)", sets:3, reps:"15", rest:45, note:"Builds quad strength that supports knee joint stability.", tip:"Don't swing the weight. Pause briefly at top for maximum contraction." },
+        { name:"Calf Raise Machine", sets:3, reps:"20", rest:30, note:"Calves respond best to higher reps. Full range — full stretch at bottom, full rise at top.", tip:"Pause at the top for 1 second each rep." },
+        { name:"Cable Pull-Through (Glutes)", sets:3, reps:"12", rest:45, note:"Hip hinge movement — excellent for glutes and hamstrings without lower back strain.", tip:"Cable between legs, hinge at hips, squeeze glutes hard at the top. Keep back flat." },
+        { name:"Plank", sets:3, reps:"25–30 sec", rest:30, note:"Build to 60 seconds over 8 weeks. Quality over duration.", tip:"Straight line from head to heels. Don't let hips sag or pike up." },
+        { name:"Side Plank", sets:2, reps:"20 sec each side", rest:20, note:"Critical for lateral core stability and hip health.", tip:"Stack feet or stagger them. Keep hips lifted throughout." }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 minutes immediately after workout, before sauna.", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15 minutes. Hydrate well — legs are a large muscle group and will produce significant metabolic heat.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake OR eggs + toast + banana. Leg day requires the most post-workout nutrition — don't skip this."
+    },
+    FRI: {
+      title: "Upper Body Pull",
+      subtitle: "Back · Biceps · Rear Delts",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + peanut butter OR Greek yogurt. Drink 12–16oz water upon waking.",
+      warmup: "8-min warm-up: arm circles · band pull-aparts (15) · thoracic rotation seated (10 each side) · light cable row warm-up set",
+      exercises: [
+        { name:"Seated Cable Row", sets:3, reps:"12", rest:60, note:"Primary back builder. Also directly corrects forward posture from 8+ hours of daily screen time.", tip:"Sit tall, chest up. Pull to your lower abdomen. Squeeze shoulder blades together at the end." },
+        { name:"Lat Pulldown Machine", sets:3, reps:"12", rest:60, note:"Builds the V-taper — wider upper back makes your waist appear narrower without losing a pound.", tip:"Wide grip, lean back slightly, pull bar to upper chest. Don't swing." },
+        { name:"Rear Delt Fly Machine", sets:3, reps:"15", rest:45, note:"Critical for posture correction and shoulder health. Most people neglect rear delts.", tip:"Use very light weight. Lead with elbows, not hands. Squeeze shoulder blades." },
+        { name:"Bicep Curl (Dumbbells or Cable)", sets:3, reps:"12", rest:45, note:"Keep elbows pinned at your sides. Full range of motion.", tip:"Supinate (rotate) your wrist at the top for full bicep contraction." },
+        { name:"Face Pull (Cable)", sets:3, reps:"15", rest:45, note:"One of the best exercises available for shoulder health and posture correction. Non-negotiable for desk workers.", tip:"Cable at face height, rope attachment. Pull toward your face, hands finishing beside your ears." },
+        { name:"Dead Bug (Core)", sets:3, reps:"10 each side", rest:30, note:"Same as Monday. Consistency with core exercises builds deep stability faster than variety.", tip:"Exhale fully as you extend arm/leg. This activates deep core muscles." }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 min — best day for longer session since no gym again until Monday.", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15–20 min. Friday is your optimal sauna day — full weekend to recover before next workout.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake OR eggs + toast. Friday post-workout nutrition is especially important — your body repairs over the weekend."
+    },
+    TUE: {
+      title: "Peloton + Core",
+      subtitle: "Zone 2 Cardio · Active Recovery",
+      type: "HOME",
+      duration: "40 min",
+      color: "#f5a623",
+      preWorkout: "No food required unless you feel low energy. Water upon waking.",
+      warmup: "2 min easy pedaling on Peloton before increasing resistance.",
+      exercises: [
+        { name:"Peloton Ride", sets:1, reps:"20–25 min", rest:0, note:"Choose a 'Low Impact' or 'Beginner' class. Target cadence: 75–85 RPM. Target heart rate: 110–130 BPM (Zone 2 — conversational pace). You should be able to speak in full sentences.", tip:"Zone 2 cardio specifically and preferentially burns visceral fat. Do NOT go all-out. Moderate and sustained is the goal." },
+        { name:"Glute Bridges", sets:3, reps:"15", rest:30, note:"Activates posterior chain and corrects anterior pelvic tilt caused by sitting all day.", tip:"Feet flat, squeeze glutes hard at the top, pause 1 second. Drive through heels." },
+        { name:"Bird Dog", sets:3, reps:"10 each side", rest:30, note:"Core stability without spinal compression — safe for gut and lower back.", tip:"Extend opposite arm and leg simultaneously. Keep hips square to the floor." },
+        { name:"Plank", sets:3, reps:"20–30 sec", rest:30, note:"Build duration weekly.", tip:"Quality over time. Stop if form breaks." }
+      ],
+      recovery: [
+        { title:"Post-Dinner Walk", detail:"15-minute walk after dinner. Non-negotiable on this plan. Reduces post-meal blood sugar by up to 30% and directly targets visceral fat. A slow stroll is fine.", icon:"🚶" }
+      ],
+      postWorkout: "No specific post-workout nutrition needed for this session unless you feel depleted."
+    },
+    THU: {
+      title: "Active Recovery",
+      subtitle: "Weighted Walk · Mobility",
+      type: "HOME",
+      duration: "30 min",
+      color: "#f5a623",
+      preWorkout: "Water upon waking. Optional: light snack if hungry.",
+      warmup: "None needed — today is intentionally easy.",
+      exercises: [
+        { name:"Weighted Vest Walk", sets:1, reps:"20–25 min", rest:0, note:"Put on your weighted vest and take a brisk walk outdoors. The added load increases caloric burn by 10–15% and builds bone density.", tip:"Comfortable pace. This is recovery, not cardio. Enjoy it." },
+        { name:"Jump Rope (Optional)", sets:5, reps:"30 sec on / 30 sec rest", rest:30, note:"Only if energy allows. Skip entirely if yesterday's leg day left you sore.", tip:"Light on the balls of your feet. Start with basic two-foot jump." }
+      ],
+      recovery: [
+        { title:"Home Infrared Sauna", detail:"20–30 min at 130–140°F. Drink 16–24oz water before. Do NOT use within 2 hours of bedtime. Post-sauna: electrolyte water (pinch of sea salt + lemon in water).", icon:"🌿" },
+        { title:"Bedtime Stretching Routine", detail:"10–12 min nightly sequence: Cat-Cow (90 sec) · Child's Pose (60 sec) · Supine Hip Flexor (30 sec/side) · Figure-4 Glute (45 sec/side) · Thoracic Rotation (10 reps/side) · Legs Up the Wall (2–3 min).", icon:"🧘" }
+      ],
+      postWorkout: "No specific post-workout nutrition needed."
+    },
+    SAT_A: {
+      title: "Longer Peloton + Bodyweight",
+      subtitle: "Weekend Cardio",
+      type: "HOME",
+      duration: "45 min",
+      color: "#f5a623",
+      preWorkout: "Optional light snack if hungry. Water.",
+      warmup: "2 min easy pedaling.",
+      exercises: [
+        { name:"Peloton Ride", sets:1, reps:"30–35 min", rest:0, note:"Longer steady Zone 2 ride. Choose a scenic ride or music ride to make it enjoyable.", tip:"Target 110–130 BPM throughout. This is your primary weekend fat-burning session." },
+        { name:"Push-Ups", sets:2, reps:"15", rest:30, note:"Optional circuit — skip if tired from the week.", tip:"Full range, chest to floor." },
+        { name:"Bodyweight Squats", sets:2, reps:"20", rest:30, note:"", tip:"" },
+        { name:"Glute Bridges", sets:2, reps:"15", rest:30, note:"", tip:"" },
+        { name:"Plank", sets:2, reps:"30 sec", rest:30, note:"", tip:"" }
+      ],
+      recovery: [
+        { title:"Post-Dinner Walk", detail:"15-minute walk after dinner.", icon:"🚶" }
+      ],
+      postWorkout: "No specific post-workout nutrition needed."
+    },
+    SAT_PB: {
+      title: "PICKLEBALL DAY! 🏓",
+      subtitle: "Every Other Saturday",
+      type: "ACTIVE",
+      duration: "90 min",
+      color: "#5b8dee",
+      preWorkout: "Eat a normal lunch before playing. Drink 24oz of water before play begins.",
+      warmup: "5 min: leg swings · arm circles · lateral shuffles · shoulder rotations",
+      exercises: [
+        { name:"Pickleball", sets:1, reps:"90 min", rest:0, note:"Burns ~400–600 calories. Excellent interval cardio and lateral movement training.", tip:"Hydration goal: 16–24oz during play. Take breaks if needed — this is enjoyment, not suffering." }
+      ],
+      recovery: [
+        { title:"Post-Pickleball Cool-Down", detail:"5 minutes: hip flexor stretch (30 sec/side) · shoulder cross-body stretch · calf stretch.", icon:"🧘" },
+        { title:"Hydration Recovery", detail:"Drink 24oz of water or electrolyte water within 30 min of finishing.", icon:"💧" }
+      ],
+      postWorkout: "Normal meal within 1–2 hours. No special protein requirements — pickleball is cardio-dominant."
+    },
+    SUN: {
+      title: "Rest & Recovery",
+      subtitle: "Home Sauna · Gentle Movement",
+      type: "REST",
+      duration: "Optional",
+      color: "#5b8dee",
+      preWorkout: "",
+      warmup: "",
+      exercises: [
+        { name:"Leisurely Walk (Optional)", sets:1, reps:"20–30 min", rest:0, note:"No vest, no intensity goal. Fresh air and movement. Can skip entirely.", tip:"" }
+      ],
+      recovery: [
+        { title:"Home Infrared Sauna", detail:"Best home sauna day — no workout tomorrow. 20–30 min at 130–140°F. Ideal for weekly deep recovery and inflammation reduction.", icon:"🌿" },
+        { title:"Bedtime Stretching", detail:"Full 10–12 min nightly routine. Weekly Review: check Apple Watch step count, note weight, waist measurement (first Sunday of each month).", icon:"🧘" }
+      ],
+      postWorkout: ""
+    }
+  },
+  B: {
+    MON: {
+      title: "Full Body Circuit",
+      subtitle: "Compound Movements · Metabolic",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + peanut butter OR Greek yogurt. Water upon waking.",
+      warmup: "8-min dynamic warm-up: full body — leg swings, arm circles, hip rotations, bodyweight squats (15), jumping jacks (20).",
+      exercises: [
+        { name:"Goblet Squat (Dumbbell)", sets:3, reps:"12", rest:60, note:"Hold dumbbell at chest height. Combines squat with upper body stability. Great Week B variation.", tip:"Feet shoulder-width, toes slightly out. Squat deep, keep chest up." },
+        { name:"Dumbbell Row (Both Arms Alternating)", sets:3, reps:"12 each side", rest:60, note:"Bend at hip, flat back, row dumbbell to hip.", tip:"Support one hand on bench if needed." },
+        { name:"Incline Chest Press (Machine or Dumbbell)", sets:3, reps:"12", rest:60, note:"Targets upper chest specifically — important for your chest fat reduction goals.", tip:"Slight incline (30°). Don't go too heavy — upper chest is weaker than flat chest." },
+        { name:"Romanian Deadlift (Dumbbells or Machine)", sets:3, reps:"12", rest:60, note:"Hip hinge movement — builds posterior chain strength. Different stimulus than leg press.", tip:"Soft bend in knees. Hinge at hips, keep bar/dumbbells close to legs. Feel hamstring stretch at bottom." },
+        { name:"Dumbbell Shoulder Press (Standing)", sets:3, reps:"12", rest:45, note:"Standing version adds core stabilization compared to seated machine.", tip:"Brace your core. Don't hyperextend lower back." },
+        { name:"Plank to Shoulder Tap", sets:3, reps:"10 each side", rest:30, note:"Anti-rotation core exercise — more challenging than standard plank.", tip:"Keep hips as still as possible when lifting each hand." }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 min after workout.", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15 min.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake OR eggs + toast."
+    },
+    WED: {
+      title: "Core & Functional Strength",
+      subtitle: "Deep Core · Rotation · Balance",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + peanut butter OR Greek yogurt. Water upon waking.",
+      warmup: "8-min: cat-cow (10) · hip circles · thoracic rotation · bodyweight squats (15) · side lunges (8 each)",
+      exercises: [
+        { name:"Cable Woodchop (High to Low)", sets:3, reps:"12 each side", rest:45, note:"Rotational core movement. Targets the obliques — the muscles that reduce the appearance of belly fat from the sides.", tip:"Stand sideways to cable. Rotate from shoulders, keep arms relatively straight." },
+        { name:"Pallof Press (Cable)", sets:3, reps:"12 each side", rest:45, note:"Anti-rotation exercise. Extremely effective deep core stability builder.", tip:"Cable at chest height. Extend arms straight out, resist the cable pulling you sideways. Hold 1–2 seconds extended." },
+        { name:"Single-Leg Press", sets:3, reps:"10 each leg", rest:45, note:"Balance and unilateral strength — reveals and corrects any left-right strength imbalances.", tip:"Same form as regular leg press but one leg at a time. Use lighter weight." },
+        { name:"Cable Face Pull", sets:3, reps:"15", rest:45, note:"Repeat from Friday — high frequency on this movement is intentional for posture correction.", tip:"Same form as Friday." },
+        { name:"Seated Cable Row (Wide Grip)", sets:3, reps:"12", rest:60, note:"Wide grip hits mid-traps and rhomboids differently than close grip.", tip:"Keep chest tall. Don't round forward on the return." },
+        { name:"Ab Wheel Rollout (or Plank)", sets:3, reps:"8–10", rest:45, note:"If ab wheel is available — exceptional core exercise. Otherwise substitute long plank (40 sec).", tip:"Start from knees. Roll out only as far as you can maintain flat back." }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 min after workout.", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15 min.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake OR eggs + toast."
+    },
+    FRI: {
+      title: "Machine Hypertrophy",
+      subtitle: "Higher Reps · Shorter Rest · Definition",
+      type: "GYM",
+      duration: "55 min",
+      color: "#3dd68c",
+      preWorkout: "Banana + peanut butter OR Greek yogurt. Water upon waking.",
+      warmup: "8-min: full body warm-up, all major joints.",
+      exercises: [
+        { name:"Chest Press Machine", sets:4, reps:"18–20", rest:30, note:"Same machine as Week A Monday but higher reps, shorter rest. This increases metabolic stress and the 'pump' that drives fat loss and definition.", tip:"Lighter weight than Week A. The goal is sustained tension, not max weight." },
+        { name:"Lat Pulldown Machine", sets:4, reps:"18–20", rest:30, note:"Higher rep range for back width and endurance.", tip:"Full range of motion every rep." },
+        { name:"Shoulder Press Machine", sets:4, reps:"18–20", rest:30, note:"", tip:"" },
+        { name:"Leg Press Machine", sets:4, reps:"18–20", rest:30, note:"High rep leg press is a significant metabolic challenge. Your heart rate will rise — this is normal and beneficial.", tip:"Lighter weight than Week A Wednesday." },
+        { name:"Tricep Pushdown", sets:3, reps:"20", rest:30, note:"", tip:"" },
+        { name:"Bicep Curl", sets:3, reps:"20", rest:30, note:"", tip:"" }
+      ],
+      recovery: [
+        { title:"Red Light Therapy", detail:"10–15 min — best day for longer session (full weekend recovery follows).", icon:"🔴" },
+        { title:"Gym Dry Sauna", detail:"15–20 min. Optimal recovery day — no gym until Monday.", icon:"🧖" }
+      ],
+      postWorkout: "Within 45 min: protein shake OR eggs + toast."
+    },
+    TUE: null, THU: null, SAT_A: null, SAT_PB: null, SUN: null
+  }
+};
+// Week B home days are same as Week A
+WORKOUTS.B.TUE = WORKOUTS.A.TUE;
+WORKOUTS.B.THU = WORKOUTS.A.THU;
+WORKOUTS.B.SAT_A = WORKOUTS.A.SAT_A;
+WORKOUTS.B.SAT_PB = WORKOUTS.A.SAT_PB;
+WORKOUTS.B.SUN = WORKOUTS.A.SUN;
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+const DAYS = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
+const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const jsDay = new Date().getDay(); // 0=Sun
+const dayMap = [6,0,1,2,3,4,5]; // JS day → our index
+let currentDayIdx = dayMap[jsDay];
+let currentWeek = 'A';
+let isSatPickleball = false;
+let completedExercises = {};
+let recoveryDone = {};
+let setData = {};
+let workoutNotes = '';
+
+// Stopwatch
+let swRunning = false, swSeconds = 0, swInterval = null;
+
+// Rest Timer
+let timerRunning = false, timerSeconds = 0, timerTotal = 0, timerInterval = null;
+
+// ═══════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════
+function getStorageKey() {
+  const d = new Date();
+  return `workout_${d.getFullYear()}_${d.getMonth()}_${d.getDate()}_${currentWeek}_${currentDayIdx}`;
+}
+function saveState() {
+  const key = getStorageKey();
+  const data = { completedExercises, recoveryDone, setData, workoutNotes, swSeconds };
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch(e){}
+}
+function loadState() {
+  try {
+    const key = getStorageKey();
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      const d = JSON.parse(saved);
+      completedExercises = d.completedExercises || {};
+      recoveryDone = d.recoveryDone || {};
+      setData = d.setData || {};
+      workoutNotes = d.workoutNotes || '';
+      swSeconds = d.swSeconds || 0;
+      updateSwDisplay();
+    } else {
+      completedExercises = {}; recoveryDone = {}; setData = {}; workoutNotes = ''; swSeconds = 0;
+    }
+  } catch(e) { completedExercises = {}; recoveryDone = {}; setData = {}; workoutNotes = ''; }
+}
+
+// ═══════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════
+function getDayKey() {
+  const d = DAYS[currentDayIdx];
+  if (d === 'SAT') return isSatPickleball ? 'SAT_PB' : 'SAT_A';
+  return d;
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('dayTabs');
+  tabs.innerHTML = '';
+  const today = dayMap[jsDay];
+  DAYS.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'day-tab' + (i === currentDayIdx ? ' active' : '') + (i === today ? ' today' : '');
+    btn.textContent = DAY_LABELS[i];
+    btn.onclick = () => { currentDayIdx = i; loadState(); renderAll(); };
+    tabs.appendChild(btn);
+  });
+  document.getElementById('weekBadge').textContent = `WEEK ${currentWeek}`;
+}
+
+function renderAll() {
+  renderTabs();
+  const workout = WORKOUTS[currentWeek][getDayKey()];
+  const content = document.getElementById('mainContent');
+  if (!workout) { content.innerHTML = '<div class="rest-day"><div class="rest-icon">💤</div><h2>DATA LOADING</h2><p>Select a day above to view your workout.</p></div>'; return; }
+
+  const total = workout.exercises ? workout.exercises.length : 0;
+  const done = Object.values(completedExercises).filter(Boolean).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+
+  let html = '';
+
+  // Week toggle
+  html += `<div class="week-toggle">
+    <button class="week-btn ${currentWeek==='A'?'active':''}" onclick="setWeek('A')">Week A</button>
+    <button class="week-btn ${currentWeek==='B'?'active':''}" onclick="setWeek('B')">Week B</button>
+  </div>`;
+
+  // Sat toggle
+  if (DAYS[currentDayIdx] === 'SAT') {
+    html += `<div class="week-toggle">
+      <button class="week-btn ${!isSatPickleball?'active':''}" onclick="setSatMode(false)">Home Workout</button>
+      <button class="week-btn ${isSatPickleball?'active':''}" onclick="setSatMode(true)">🏓 Pickleball</button>
+    </div>`;
+  }
+
+  // Day hero
+  html += `<div class="day-hero">
+    <div class="day-hero-label">${DAY_LABELS[currentDayIdx]} · Week ${currentWeek}</div>
+    <div class="day-hero-title">${workout.title}</div>
+    <div class="day-hero-sub">${workout.subtitle}</div>
+    <div class="day-hero-meta">
+      <span class="meta-chip ${workout.type==='GYM'?'green':'amber'}">${workout.type}</span>
+      <span class="meta-chip">${workout.duration}</span>
+      ${pct===100?'<span class="meta-chip green">✓ COMPLETED</span>':''}
+    </div>
+  </div>`;
+
+  // Progress
+  if (total > 0) {
+    html += `<div class="progress-wrap">
+      <div class="progress-label"><span>${done} of ${total} exercises done</span><span>${pct}%</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  // HR Zones (gym days)
+  if (workout.type === 'GYM' || DAYS[currentDayIdx] === 'TUE') {
+    html += `<div class="hr-zone-card">
+      <div class="hr-zone-title">Heart Rate Zones (Apple Watch Target)</div>
+      <div class="hr-zones">
+        <div class="hr-zone zone1"><div class="zone-name">Z1</div><div class="zone-bpm">&lt;95</div><div class="zone-label">Warm-up</div></div>
+        <div class="hr-zone zone2"><div class="zone-name">Z2</div><div class="zone-bpm">95–114</div><div class="zone-label">Fat Burn</div></div>
+        <div class="hr-zone zone3"><div class="zone-name">Z3</div><div class="zone-bpm">115–133</div><div class="zone-label">Cardio</div></div>
+        <div class="hr-zone zone4"><div class="zone-name">Z4</div><div class="zone-bpm">134–152</div><div class="zone-label">Peak</div></div>
+      </div>
+    </div>`;
+  }
+
+  // Pre-workout
+  if (workout.preWorkout) {
+    html += `<div class="pre-workout"><h4>⚡ Pre-Workout</h4><p>${workout.preWorkout}</p></div>`;
+  }
+
+  // Warm-up
+  if (workout.warmup) {
+    html += `<div class="section-label">Warm-Up</div>
+    <div class="exercise-card ${completedExercises['warmup']?'completed':''}">
+      <div class="ex-header" onclick="toggleExercise('warmup_body')">
+        <div class="ex-check" onclick="event.stopPropagation();toggleComplete('warmup')">${completedExercises['warmup']?'✓':''}</div>
+        <div class="ex-info"><div class="ex-name">Dynamic Warm-Up</div><div class="ex-sets">8 min · Before all exercises</div></div>
+        <div class="ex-expand" id="warmup_body_arrow">▾</div>
+      </div>
+      <div class="ex-body" id="warmup_body">
+        <div class="ex-tip">${workout.warmup}</div>
+      </div>
+    </div>`;
+  }
+
+  // Exercises
+  if (workout.exercises && workout.exercises.length > 0) {
+    html += `<div class="section-label">Exercises</div>`;
+    workout.exercises.forEach((ex, i) => {
+      const key = `ex_${i}`;
+      const done = completedExercises[key];
+      const sets = ex.sets || 1;
+      let setRows = '';
+      if (sets > 1 && ex.reps && !ex.reps.includes('min') && !ex.reps.includes('sec') && ex.reps !== '1') {
+        setRows = `<div class="sets-tracker">
+          <div class="set-labels">
+            <div class="set-label">Set</div>
+            <div class="set-label">Weight (lbs)</div>
+            <div class="set-label">Reps</div>
+            <div class="set-label">✓</div>
+          </div>`;
+        for (let s = 1; s <= sets; s++) {
+          const sd = (setData[key] && setData[key][s]) || {};
+          setRows += `<div class="set-row">
+            <div class="set-num">${s}</div>
+            <input class="set-input" type="number" placeholder="lbs" value="${sd.weight||''}" onchange="saveSetData('${key}',${s},'weight',this.value)" oninput="saveSetData('${key}',${s},'weight',this.value)">
+            <input class="set-input" type="number" placeholder="reps" value="${sd.reps||''}" onchange="saveSetData('${key}',${s},'reps',this.value)" oninput="saveSetData('${key}',${s},'reps',this.value)">
+            <button class="set-done-btn ${sd.done?'done':''}" onclick="toggleSetDone('${key}',${s})">${sd.done?'✓':'○'}</button>
+          </div>`;
+        }
+        setRows += '</div>';
+      }
+      html += `<div class="exercise-card ${done?'completed':''}" id="card_${key}">
+        <div class="ex-header" onclick="toggleExercise('body_${key}')">
+          <div class="ex-check" onclick="event.stopPropagation();toggleComplete('${key}')">${done?'✓':''}</div>
+          <div class="ex-info">
+            <div class="ex-name">${ex.name}</div>
+            <div class="ex-sets">${ex.sets} ${ex.sets===1?'set':'sets'} × ${ex.reps}${ex.rest?' · Rest: '+ex.rest+'s':''}</div>
+          </div>
+          <div class="ex-expand" id="body_${key}_arrow">▾</div>
+        </div>
+        <div class="ex-body" id="body_${key}">
+          ${ex.note?`<div class="ex-note">📌 ${ex.note}</div>`:''}
+          ${ex.tip?`<div class="ex-tip">💡 <strong>Form tip:</strong> ${ex.tip}</div>`:''}
+          ${setRows}
+          ${ex.rest?`<button class="rest-timer-btn" onclick="startTimer(${ex.rest})"><span class="timer-icon">⏱</span> Start ${ex.rest}s Rest Timer</button>`:''}
+        </div>
+      </div>`;
+    });
+  }
+
+  // Post workout
+  if (workout.postWorkout) {
+    html += `<div class="pre-workout" style="border-left-color:#3dd68c;margin-top:16px"><h4 style="color:#3dd68c">🥗 Post-Workout Nutrition</h4><p>${workout.postWorkout}</p></div>`;
+  }
+
+  // Recovery
+  if (workout.recovery && workout.recovery.length > 0) {
+    html += `<div class="section-label">Recovery</div>`;
+    workout.recovery.forEach((r, i) => {
+      const key = `rec_${i}`;
+      const done = recoveryDone[key];
+      html += `<div class="recovery-card">
+        <div class="recovery-header">
+          <div class="recovery-check ${done?'done':''}" onclick="toggleRecovery('${key}')">${done?'✓':''}</div>
+          <div class="recovery-title">${r.icon} ${r.title}</div>
+        </div>
+        <div class="recovery-detail">${r.detail}</div>
+      </div>`;
+    });
+  }
+
+  // Notes
+  html += `<div class="section-label">Workout Notes</div>
+  <textarea class="notes-area" placeholder="Log how you felt, weights used, anything notable..." onchange="saveNotes(this.value)">${workoutNotes}</textarea>`;
+
+  // Complete button
+  html += `<button class="complete-workout-btn" onclick="completeWorkout()">
+    ${pct === 100 ? '✓ WORKOUT COMPLETE — LOG SAVED' : 'MARK WORKOUT COMPLETE'}
+  </button>`;
+
+  content.innerHTML = html;
+}
+
+// ═══════════════════════════════════════
+// INTERACTIONS
+// ═══════════════════════════════════════
+function setWeek(w) { currentWeek = w; loadState(); renderAll(); }
+function setSatMode(pb) { isSatPickleball = pb; loadState(); renderAll(); }
+
+function toggleExercise(bodyId) {
+  const body = document.getElementById(bodyId);
+  const arrow = document.getElementById(bodyId + '_arrow');
+  if (!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+}
+
+function toggleComplete(key) {
+  completedExercises[key] = !completedExercises[key];
+  saveState();
+  renderAll();
+  // Scroll to maintain position
+}
+
+function toggleRecovery(key) {
+  recoveryDone[key] = !recoveryDone[key];
+  saveState();
+  renderAll();
+}
+
+function saveSetData(exKey, setNum, field, val) {
+  if (!setData[exKey]) setData[exKey] = {};
+  if (!setData[exKey][setNum]) setData[exKey][setNum] = {};
+  setData[exKey][setNum][field] = val;
+  saveState();
+}
+
+function toggleSetDone(exKey, setNum) {
+  if (!setData[exKey]) setData[exKey] = {};
+  if (!setData[exKey][setNum]) setData[exKey][setNum] = {};
+  setData[exKey][setNum].done = !setData[exKey][setNum].done;
+  saveState();
+  renderAll();
+}
+
+function saveNotes(val) { workoutNotes = val; saveState(); }
+
+function completeWorkout() {
+  const workout = WORKOUTS[currentWeek][getDayKey()];
+  const total = workout.exercises ? workout.exercises.length : 0;
+  const done = Object.values(completedExercises).filter(Boolean).length;
+  const swTime = formatSwTime(swSeconds);
+
+  const overlay = document.getElementById('completeOverlay');
+  document.getElementById('completeStats').innerHTML = `
+    <div class="complete-stat"><div class="cs-val">${done}/${total}</div><div class="cs-label">Exercises</div></div>
+    <div class="complete-stat"><div class="cs-val">${swTime}</div><div class="cs-label">Duration</div></div>
+  `;
+  document.getElementById('completeSummary').textContent = `${workout.title} on ${DAY_LABELS[currentDayIdx]} (Week ${currentWeek}) logged successfully. Remember your post-workout nutrition window — eat within 45 minutes.`;
+  overlay.classList.add('show');
+  saveState();
+}
+function closeComplete() { document.getElementById('completeOverlay').classList.remove('show'); }
+
+// ═══════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════
+function getSyncUrlW() { return localStorage.getItem('sync_url') || ''; }
+function getAutoSyncW() { return localStorage.getItem('auto_sync') !== 'false'; }
+
+function showSyncPanel() {
+  document.getElementById('swSyncUrl').value = getSyncUrlW();
+  document.getElementById('swAutoSync').checked = getAutoSyncW();
+  document.getElementById('swSyncStatus').textContent = '';
+  document.getElementById('syncOverlay').classList.add('show');
+}
+function closeSyncPanel() { document.getElementById('syncOverlay').classList.remove('show'); }
+
+function saveSyncWorkout() {
+  const url = document.getElementById('swSyncUrl').value.trim();
+  const auto = document.getElementById('swAutoSync').checked;
+  if (url && !url.startsWith('https://script.google.com/')) {
+    document.getElementById('swSyncStatus').textContent = '⚠️ URL must start with https://script.google.com/';
+    document.getElementById('swSyncStatus').style.color = 'var(--red)';
+    return;
+  }
+  localStorage.setItem('sync_url', url);
+  localStorage.setItem('auto_sync', auto ? 'true' : 'false');
+  document.getElementById('swSyncStatus').textContent = '✓ Settings saved.';
+  document.getElementById('swSyncStatus').style.color = 'var(--accent)';
+}
+
+async function sendToSheetW(tabName, rowData) {
+  const url = getSyncUrlW();
+  if (!url) return { success: false };
+  try {
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ tab: tabName, data: rowData, timestamp: new Date().toISOString() })
+    });
+    return { success: true };
+  } catch (e) {
+    // Queue for retry
+    try {
+      const q = JSON.parse(localStorage.getItem('sync_queue')||'[]');
+      q.push({ tab: tabName, data: rowData, timestamp: new Date().toISOString() });
+      localStorage.setItem('sync_queue', JSON.stringify(q));
+    } catch(err) {}
+    return { success: false };
+  }
+}
+
+async function testSyncWorkout() {
+  const url = getSyncUrlW();
+  if (!url) {
+    document.getElementById('swSyncStatus').textContent = '⚠️ Save a URL first.';
+    document.getElementById('swSyncStatus').style.color = 'var(--red)';
+    return;
+  }
+  document.getElementById('swSyncStatus').textContent = 'Sending test...';
+  document.getElementById('swSyncStatus').style.color = 'var(--accent2)';
+  await sendToSheetW('Workouts', {
+    Date: new Date().toLocaleDateString('en-US'),
+    Week: 'TEST',
+    Day: 'TEST',
+    WorkoutTitle: 'Connection Test',
+    Exercise: 'TEST_CONNECTION',
+    Set: '',
+    Reps: '',
+    Weight: '',
+    Duration: '',
+    Notes: 'Test entry — safe to delete'
+  });
+  document.getElementById('swSyncStatus').textContent = '✓ Test sent! Check the Workouts tab in your Sheet.';
+  document.getElementById('swSyncStatus').style.color = 'var(--accent)';
+}
+
+// Override completeWorkout to push all set data to Google Sheets
+const _origCompleteWorkout = completeWorkout;
+completeWorkout = async function() {
+  const workout = WORKOUTS[currentWeek][getDayKey()];
+  if (!workout || !workout.exercises) { _origCompleteWorkout(); return; }
+  const today = new Date().toLocaleDateString('en-US');
+  const duration = formatSwTime(swSeconds);
+
+  if (getAutoSyncW() && getSyncUrlW()) {
+    // Push one row per set per exercise
+    for (let i = 0; i < workout.exercises.length; i++) {
+      const ex = workout.exercises[i];
+      const exKey = `ex_${i}`;
+      const sets = setData[exKey] || {};
+      const setCount = ex.sets || 1;
+      let pushedAny = false;
+      for (let s = 1; s <= setCount; s++) {
+        const sd = sets[s];
+        if (sd && (sd.weight || sd.reps || sd.done)) {
+          await sendToSheetW('Workouts', {
+            Date: today,
+            Week: currentWeek,
+            Day: DAY_LABELS[currentDayIdx],
+            WorkoutTitle: workout.title,
+            Exercise: ex.name,
+            Set: s,
+            Reps: sd.reps || ex.reps || '',
+            Weight: sd.weight || '',
+            Duration: '',
+            Notes: completedExercises[exKey] ? 'Completed' : ''
+          });
+          pushedAny = true;
+        }
+      }
+      // If no set data but exercise was completed, push a single row
+      if (!pushedAny && completedExercises[exKey]) {
+        await sendToSheetW('Workouts', {
+          Date: today,
+          Week: currentWeek,
+          Day: DAY_LABELS[currentDayIdx],
+          WorkoutTitle: workout.title,
+          Exercise: ex.name,
+          Set: '',
+          Reps: ex.reps || '',
+          Weight: '',
+          Duration: '',
+          Notes: 'Completed (no set data logged)'
+        });
+      }
+    }
+    // Summary row
+    await sendToSheetW('Workouts', {
+      Date: today,
+      Week: currentWeek,
+      Day: DAY_LABELS[currentDayIdx],
+      WorkoutTitle: workout.title + ' [SUMMARY]',
+      Exercise: '---',
+      Set: '',
+      Reps: '',
+      Weight: '',
+      Duration: duration,
+      Notes: workoutNotes || ''
+    });
+  }
+
+  _origCompleteWorkout();
+};
+
+// ═══════════════════════════════════════
+// REST TIMER
+// ═══════════════════════════════════════
+function startTimer(seconds) {
+  timerTotal = seconds;
+  timerSeconds = seconds;
+  timerRunning = true;
+  clearInterval(timerInterval);
+  document.getElementById('timerOverlay').classList.add('show');
+  updateTimerDisplay();
+  timerInterval = setInterval(tickTimer, 1000);
+}
+function tickTimer() {
+  if (!timerRunning) return;
+  timerSeconds--;
+  if (timerSeconds <= 0) {
+    timerSeconds = 0;
+    timerRunning = false;
+    clearInterval(timerInterval);
+    document.getElementById('timerMsg').textContent = '✓ Rest complete — next set!';
+    document.getElementById('timerDisplay').className = 'timer-display done';
+    document.getElementById('timerToggleBtn').textContent = 'Done';
+    try { if (window.navigator.vibrate) window.navigator.vibrate([200,100,200]); } catch(e){}
+  }
+  updateTimerDisplay();
+}
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds/60);
+  const s = timerSeconds%60;
+  document.getElementById('timerDisplay').textContent = `${m}:${String(s).padStart(2,'0')}`;
+  const pct = timerSeconds/timerTotal;
+  const circ = 326.7;
+  document.getElementById('timerRingFill').style.strokeDashoffset = circ*(1-pct);
+  if (timerSeconds <= 10 && timerSeconds > 0) {
+    document.getElementById('timerDisplay').className = 'timer-display warning';
+    document.getElementById('timerRingFill').className = 'timer-ring-fill warning';
+    document.getElementById('timerMsg').textContent = 'Almost done...';
+  } else if (timerSeconds > 10) {
+    document.getElementById('timerDisplay').className = 'timer-display';
+    document.getElementById('timerRingFill').className = 'timer-ring-fill';
+    document.getElementById('timerMsg').textContent = 'Rest and breathe deeply';
+  }
+}
+function toggleTimer() {
+  if (timerSeconds === 0) { closeTimer(); return; }
+  timerRunning = !timerRunning;
+  document.getElementById('timerToggleBtn').textContent = timerRunning ? 'Pause' : 'Resume';
+  if (timerRunning) { timerInterval = setInterval(tickTimer, 1000); }
+  else { clearInterval(timerInterval); }
+}
+function closeTimer() {
+  clearInterval(timerInterval);
+  timerRunning = false;
+  document.getElementById('timerOverlay').classList.remove('show');
+  document.getElementById('timerToggleBtn').textContent = 'Pause';
+  document.getElementById('timerMsg').textContent = 'Rest and breathe deeply';
+}
+
+// ═══════════════════════════════════════
+// STOPWATCH
+// ═══════════════════════════════════════
+function formatSwTime(s) {
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  const sec = s%60;
+  if (h > 0) return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+function updateSwDisplay() { document.getElementById('swDisplay').textContent = formatSwTime(swSeconds); }
+function toggleStopwatch() {
+  swRunning = !swRunning;
+  const btn = document.getElementById('swStartBtn');
+  if (swRunning) {
+    btn.textContent = 'Pause'; btn.className = 'sw-btn sw-pause';
+    swInterval = setInterval(() => { swSeconds++; updateSwDisplay(); saveState(); }, 1000);
+  } else {
+    btn.textContent = 'Resume'; btn.className = 'sw-btn sw-start';
+    clearInterval(swInterval);
+  }
+}
+function resetStopwatch() {
+  clearInterval(swInterval); swRunning = false; swSeconds = 0;
+  updateSwDisplay();
+  document.getElementById('swStartBtn').textContent = 'Start';
+  document.getElementById('swStartBtn').className = 'sw-btn sw-start';
+  saveState();
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+loadState();
+renderAll();
+</script>
+</body>
+</html>
