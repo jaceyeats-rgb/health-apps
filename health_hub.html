@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -424,6 +425,23 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
 .ss-val { font-family:'DM Mono',monospace; font-size:20px; font-weight:600; color:var(--forest); }
 .ss-label { font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
 
+/* H/T/L Sleep Classification Buttons */
+.htl-btn {
+  flex:1; padding:10px 8px;
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  font-size:13px; font-weight:600;
+  color:var(--text2);
+  cursor:pointer;
+  transition:all 0.15s;
+  font-family:'DM Mono',monospace;
+}
+.htl-btn:active { transform:scale(0.96); }
+.htl-high-active { background:#fce8e4; border-color:var(--rust); color:var(--rust); }
+.htl-typical-active { background:#e8f4ec; border-color:var(--sage); color:var(--sage); }
+.htl-low-active { background:#fdf3e3; border-color:var(--gold); color:var(--gold); }
+
 textarea.notes-big {
   width:100%; background:var(--surface2);
   border:1px solid var(--border); border-radius:8px;
@@ -455,10 +473,10 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="date-badge" id="dateBadge"></div>
   </div>
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="showTab('dashboard')">📋 Today</button>
-    <button class="tab-btn" onclick="showTab('nutrition')">🍽 Nutrition</button>
-    <button class="tab-btn" onclick="showTab('biometrics')">📊 Metrics</button>
+    <button class="tab-btn active" onclick="showTab('dashboard')">🌅 Morning</button>
     <button class="tab-btn" onclick="showTab('evening')">🌙 Evening</button>
+    <button class="tab-btn" onclick="showTab('nutrition')">🍽 Food</button>
+    <button class="tab-btn" onclick="showTab('biometrics')">📊 Stats</button>
     <button class="tab-btn" onclick="showTab('settings')">⚙️ Sync</button>
   </div>
 </div>
@@ -475,15 +493,57 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="hero-badges" id="heroBadges"></div>
   </div>
 
-  <div class="quick-stats" id="quickStats"></div>
-
   <div class="section-head">Morning Checklist</div>
   <div class="card" id="morningChecklist"></div>
+
+  <div class="section-head">Yesterday's Data</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Report the previous day/night's metrics from your Apple Watch. Tap save on each one — all data syncs to your Stats sheet automatically.</p>
+
+  <div class="metric-input-card">
+    <div class="metric-label">⚖️ Weight</div>
+    <div class="metric-input-row">
+      <input class="metric-input" type="number" step="0.1" id="ydWeight" placeholder="lbs">
+      <div class="metric-unit">lbs</div>
+      <button class="save-metric-btn" onclick="saveYesterdayMetric('weight','Weight','lbs')">Save</button>
+    </div>
+  </div>
+
+  <div class="metric-input-card">
+    <div class="metric-label">👟 Steps</div>
+    <div class="metric-input-row">
+      <input class="metric-input" type="number" id="ydSteps" placeholder="steps">
+      <div class="metric-unit">steps</div>
+      <button class="save-metric-btn" onclick="saveYesterdayMetric('steps','Steps','steps')">Save</button>
+    </div>
+  </div>
+
+  <div class="metric-input-card">
+    <div class="metric-label">❤️ Resting Heart Rate</div>
+    <div class="metric-input-row">
+      <input class="metric-input" type="number" id="ydRHR" placeholder="BPM">
+      <div class="metric-unit">BPM</div>
+      <button class="save-metric-btn" onclick="saveYesterdayMetric('rhr','RestingHR','BPM')">Save</button>
+    </div>
+  </div>
+
+  <div class="metric-input-card">
+    <div class="metric-label">📈 HRV</div>
+    <div class="metric-input-row">
+      <input class="metric-input" type="number" step="0.1" id="ydHRV" placeholder="ms">
+      <div class="metric-unit">ms</div>
+      <button class="save-metric-btn" onclick="saveYesterdayMetric('hrv','HRV','ms')">Save</button>
+    </div>
+  </div>
+
+  <div class="section-head">Sleep — Last Night (H/T/L Classification)</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">From your Apple Watch Sleep section: classify each metric versus your personal baseline.</p>
+
+  <div id="sleepClassification"></div>
 
   <div class="section-head">Today's Nutrition Targets</div>
   <div class="card card-amber">
     <h3>🎯 Calorie Target: ~1,900–2,000 cal/day</h3>
-    <p>Protein goal: <strong>140–160g</strong> · Water: <strong>80+ oz</strong> · No caffeine after <strong>2:00 PM</strong> · Kitchen closes: <strong>7:30 PM</strong></p>
+    <p>Protein goal: <strong>140–160g</strong> · Water: <strong>80+ oz</strong> · Kitchen closes: <strong>7:30 PM</strong></p>
   </div>
 
   <div class="section-head">Screen Time Reminders</div>
@@ -493,11 +553,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
     ✓ Stand & move every 45–60 min (Watch will remind you)<br>
     ✓ No screens 60 min before bed<br>
     ✓ Eat all meals away from screens</p>
-  </div>
-
-  <div class="section-head">Previous Night's Log</div>
-  <div class="card" id="prevNightSummary">
-    <p style="color:var(--text2);font-size:13px;">Complete the Evening Log to see your previous night's summary here.</p>
   </div>
 
 </div>
@@ -537,8 +592,31 @@ textarea.notes-big::placeholder { color:var(--text3); }
     </div>
   </div>
 
-  <div class="section-head">Supplement Log</div>
+  <div class="section-head">Supplements & Medications</div>
   <div class="card" id="suppLog"></div>
+
+  <div class="card" style="margin-top:8px">
+    <h3 style="font-size:14px;margin-bottom:8px">➕ Add a Medication</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Add prescription medications or additional supplements not in the default list above.</p>
+    <input type="text" id="newMedName" placeholder="Medication name (e.g., Lisinopril)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:6px;box-sizing:border-box">
+    <input type="text" id="newMedIngredient" placeholder="Key ingredient (e.g., Lisinopril)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:6px;box-sizing:border-box">
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <input type="number" id="newMedDose" placeholder="Dose" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;box-sizing:border-box">
+      <select id="newMedUnit" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px">
+        <option value="mg">mg</option>
+        <option value="mcg">mcg</option>
+        <option value="IU">IU</option>
+        <option value="capsule">capsule</option>
+        <option value="tablet">tablet</option>
+        <option value="tsp">tsp</option>
+        <option value="tbsp">tbsp</option>
+        <option value="ml">ml</option>
+        <option value="drop">drop</option>
+      </select>
+    </div>
+    <input type="text" id="newMedTime" placeholder="When to take (e.g., Morning, Bedtime)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box">
+    <button class="save-metric-btn" onclick="addMedication()" style="width:100%">Add Medication</button>
+  </div>
 
   <div class="section-head">Restaurant Ordering Guide</div>
 
@@ -690,16 +768,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
   </div>
 
   <div class="metric-input-card">
-    <div class="metric-label">📏 Waist Circumference</div>
-    <div class="metric-sublabel">Measure first Sunday of each month at navel level. Enter in inches.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" step="0.25" id="waistInput" placeholder="0.0">
-      <div class="metric-unit">in</div>
-      <button class="save-metric-btn" onclick="saveMetric('waist')">Save</button>
-    </div>
-  </div>
-
-  <div class="metric-input-card">
     <div class="metric-label">👟 Daily Steps</div>
     <div class="metric-sublabel">Enter from Apple Watch or iPhone Health app at end of day.</div>
     <div class="metric-input-row">
@@ -767,7 +835,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <h3>90-Day Goals</h3>
     <p>
       ⚖️ Weight: <strong>200 lbs → 183–188 lbs</strong><br>
-      📏 Waist: <strong>Reduce 2–3 inches from baseline</strong><br>
       👟 Steps: <strong>5,000 → 9,000–10,000/day</strong><br>
       ❤️ Resting HR: <strong>Drop 5–8 BPM from baseline</strong><br>
       🧪 HDL (next labs): <strong>43 → 50+ mg/dL</strong><br>
@@ -805,17 +872,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
       <button class="save-metric-btn" onclick="saveScreenTime()">Log</button>
     </div>
     <div id="screenTimeFeedback" style="margin-top:8px;font-size:13px;color:var(--text2)"></div>
-  </div>
-
-  <div class="card">
-    <h3>🌙 How are you feeling tonight?</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Quick check-in — energy level today, any gut symptoms, post-meal grogginess?</p>
-    <textarea class="notes-big" id="eveningNotes" placeholder="e.g., Energy was good today. Slight bloating after lunch. No grogginess after dinner. Gut feels fine." onchange="saveEveningNotes()"></textarea>
-  </div>
-
-  <div class="card">
-    <h3>🏆 Win of the Day</h3>
-    <textarea class="notes-big" id="winOfDay" placeholder="What did you do well today? (e.g., Hit 8,200 steps, took all supplements, walked after dinner)" style="min-height:60px" onchange="saveWin()"></textarea>
   </div>
 
   <button class="submit-btn green" onclick="submitEveningLog()">✓ Submit Evening Log</button>
@@ -890,21 +946,29 @@ textarea.notes-big::placeholder { color:var(--text3); }
 // DATA
 // ═══════════════════════════════════════
 const SUPPLEMENTS = [
-  { name:"GoBiotix Probiotic Multivitamin", detail:"With first meal", time:"Morning" },
-  { name:"Vitamin D3 + K2 (Standard Dose)", detail:"With first meal (fat-soluble)", time:"Morning" },
-  { name:"Elderberry + C + Zinc + Quercetin", detail:"Oct–Mar or when feeling run-down", time:"Morning · Seasonal" },
-  { name:"Omega-3 Fish Oil (2,000mg EPA+DHA)", detail:"With lunch or dinner", time:"Lunch/Dinner" },
-  { name:"Metamucil Psyllium Fiber", detail:"With large glass of water", time:"Morning or Evening" },
-  { name:"Magnesium Glycinate (300–400mg)", detail:"Before bed — supports sleep & gut", time:"Bedtime" }
+  { name:"GoBiotix Probiotic Multivitamin", keyIngredient:"Probiotic Blend + Multivitamin", defaultDose:1, doseUnit:"capsule", detail:"With first meal", time:"Morning" },
+  { name:"Vitamin D3 + K2", keyIngredient:"D3 + K2 (MK-7)", defaultDose:2000, doseUnit:"IU", detail:"With first meal (fat-soluble)", time:"Morning" },
+  { name:"Elderberry + C + Zinc + Quercetin", keyIngredient:"Elderberry + Vit C + Zinc + Quercetin", defaultDose:1, doseUnit:"capsule", detail:"Oct–Mar or when feeling run-down", time:"Morning · Seasonal" },
+  { name:"Omega-3 Fish Oil", keyIngredient:"EPA + DHA", defaultDose:2000, doseUnit:"mg", detail:"With lunch or dinner", time:"Lunch/Dinner" },
+  { name:"Metamucil Psyllium Fiber", keyIngredient:"Psyllium Husk", defaultDose:1, doseUnit:"tsp", detail:"With large glass of water", time:"Morning or Evening" },
+  { name:"Magnesium Glycinate", keyIngredient:"Magnesium Glycinate", defaultDose:350, doseUnit:"mg", detail:"Before bed — supports sleep & gut", time:"Bedtime" }
 ];
 
+// User-managed medications list (stored in localStorage, editable in app)
+function getMedications() {
+  try { return JSON.parse(localStorage.getItem('user_medications')||'[]'); } catch(e) { return []; }
+}
+function setMedications(arr) {
+  localStorage.setItem('user_medications', JSON.stringify(arr));
+}
+
 const STRETCHES = [
-  { name:"Cat-Cow", duration:"90 seconds", timerSec:90, desc:"On hands and knees: inhale and arch back (cow), exhale and round spine (cat). 10 slow cycles. Start here every night — it signals your nervous system that the day is done. Mobilizes the entire spine and promotes gut motility." },
-  { name:"Child's Pose", duration:"60 seconds", timerSec:60, desc:"Kneel and reach arms forward, forehead to floor or pillow. Hold with slow breathing. Decompresses the lumbar spine and hip flexors tightened by sitting all day." },
-  { name:"Supine Hip Flexor Stretch", duration:"30 seconds each side", timerSec:30, desc:"Lying on your back: pull one knee to chest while keeping the other leg straight on the floor. Hold 30 sec each side. Directly counteracts anterior pelvic tilt from desk sitting." },
-  { name:"Figure-4 Glute Stretch", duration:"45 seconds each side", timerSec:45, desc:"Lying on back: cross one ankle over the opposite knee, gently pull the figure-4 shape toward your chest. 45 seconds each side. Releases the piriformis and hip rotators — critical for lower back health." },
-  { name:"Thoracic Rotation", duration:"10 reps each side", timerSec:60, desc:"Lying on side, knees stacked at 90°: reach top arm across body and open it to the other side, following with your gaze. 10 slow rotations each side. Restores thoracic mobility lost from screen work." },
-  { name:"Legs Up the Wall", duration:"2–3 minutes", timerSec:150, desc:"Lie near a wall and extend both legs vertically against it. Close your eyes, breathe slowly. Drains lymphatic fluid, reduces lower body inflammation, and is one of the most effective natural relaxation techniques. End your routine here — many people fall asleep faster after this consistently." }
+  { name:"Cat-Cow", duration:"10 slow cycles", timerSec:null, repBased:true, desc:"On hands and knees: inhale and arch back (cow), exhale and round spine (cat). 10 slow cycles. Start here every night — it signals your nervous system that the day is done. Mobilizes the entire spine and promotes gut motility." },
+  { name:"Child's Pose", duration:"60 seconds", timerSec:60, repBased:false, desc:"Kneel and reach arms forward, forehead to floor or pillow. Hold with slow breathing. Decompresses the lumbar spine and hip flexors tightened by sitting all day." },
+  { name:"Supine Hip Flexor Stretch", duration:"30 seconds each side", timerSec:30, repBased:false, desc:"Lying on your back: pull one knee to chest while keeping the other leg straight on the floor. Hold 30 sec each side. Directly counteracts anterior pelvic tilt from desk sitting." },
+  { name:"Figure-4 Glute Stretch", duration:"45 seconds each side", timerSec:45, repBased:false, desc:"Lying on back: cross one ankle over the opposite knee, gently pull the figure-4 shape toward your chest. 45 seconds each side. Releases the piriformis and hip rotators — critical for lower back health." },
+  { name:"Thoracic Rotation", duration:"10 reps each side", timerSec:null, repBased:true, desc:"Lying on side, knees stacked at 90°: reach top arm across body and open it to the other side, following with your gaze. 10 slow rotations each side. Restores thoracic mobility lost from screen work." },
+  { name:"Legs Up the Wall", duration:"2–3 minutes", timerSec:150, repBased:false, desc:"Lie near a wall and extend both legs vertically against it. Close your eyes, breathe slowly. Drains lymphatic fluid, reduces lower body inflammation, and is one of the most effective natural relaxation techniques. End your routine here — many people fall asleep faster after this consistently." }
 ];
 
 const DAY_PLANS = {
@@ -1067,16 +1131,23 @@ async function syncAllToday() {
   const today = new Date().toLocaleDateString('en-US');
   let count = 0;
 
-  // Sync Supplements
-  const SUPP_NAMES = ['GoBiotix Probiotic','Vitamin D3+K2','Elderberry/C/Zinc/Quercetin','Omega-3 Fish Oil','Metamucil Psyllium','Magnesium Glycinate'];
+  // Sync Supplements & Medications
+  const allItems = buildAllSuppMedList();
+  const doseOverrides = data.doseOverrides || {};
   if (data.suppTaken) {
-    for (let i = 0; i < 6; i++) {
-      if (data.suppTaken[i]) {
-        await sendToSheet('Supplements', {
+    for (let idx = 0; idx < allItems.length; idx++) {
+      if (data.suppTaken[idx]) {
+        const item = allItems[idx];
+        const actualDose = doseOverrides[idx] !== undefined ? doseOverrides[idx] : item.defaultDose;
+        await sendToSheet('Supplements_Meds', {
           Date: today,
-          Supplement: SUPP_NAMES[i],
+          Type: item.type,
+          Name: item.name,
+          KeyIngredient: item.keyIngredient || '',
+          DoseAmount: actualDose,
+          DoseUnit: item.doseUnit,
           Taken: 'Yes',
-          TimeTaken: data.suppTaken[i+'_time'] || '',
+          TimeTaken: data.suppTaken[idx+'_time'] || '',
           Notes: ''
         });
         count++;
@@ -1123,31 +1194,13 @@ function renderDashboard() {
   const data = loadToday();
   const weightHist = loadHistory('metric_weight');
   const stepsHist = loadHistory('metric_steps');
-  const lastWeight = weightHist.length ? weightHist[weightHist.length-1].val : '—';
-  const lastSteps = stepsHist.length ? stepsHist[stepsHist.length-1].val.toLocaleString() : '—';
-
-  document.getElementById('quickStats').innerHTML = `
-    <div class="qs-card">
-      <div class="qs-label">Last Weight</div>
-      <div class="qs-value">${lastWeight}</div>
-      <div class="qs-sub">lbs · Goal: 183–188</div>
-    </div>
-    <div class="qs-card">
-      <div class="qs-label">Steps Yesterday</div>
-      <div class="qs-value" style="font-size:20px;padding-top:4px">${lastSteps}</div>
-      <div class="qs-sub">Goal: 9,000–10,000</div>
-    </div>
-  `;
 
   // Morning checklist
   const checks = data.morningChecks || {};
   const items = [
     { key:'water', title:'Drink 12–16oz water immediately upon waking', detail:'Before coffee. Rehydrates after 7–8 hrs of sleep.', time:'Upon waking' },
     { key:'preworkout', title:'Pre-workout snack (gym days)', detail:'Banana + PB or Greek yogurt, 20–30 min before gym.', time:'Before gym' },
-    { key:'supplements_am', title:'Morning supplements taken', detail:'GoBiotix Probiotic · D3+K2 · Elderberry (seasonal)', time:'With first meal' },
-    { key:'caffeine', title:'Caffeine cutoff at 2:00 PM', detail:'All coffee & latte consumed before 2pm today.', time:'By 2:00 PM' },
-    { key:'postworkout', title:'Post-workout nutrition (gym days)', detail:'Protein shake or eggs + toast within 45 min of finishing.', time:'Within 45 min of gym' },
-    { key:'lunch_walk', title:'Post-lunch walk (15 min)', detail:'Walk after lunch — reduces blood sugar spike by ~30%.', time:'After lunch' }
+    { key:'supplements_am', title:'Morning supplements taken', detail:'GoBiotix Probiotic · D3+K2 · Elderberry (seasonal)', time:'With first meal' }
   ];
 
   document.getElementById('morningChecklist').innerHTML = items.map(item => `
@@ -1161,18 +1214,26 @@ function renderDashboard() {
     </div>
   `).join('');
 
-  // Previous night summary
-  const prevKey = (() => { const d = new Date(); d.setDate(d.getDate()-1); return `hub_${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,'0')}_${String(d.getDate()).padStart(2,'0')}`; })();
-  try {
-    const prev = JSON.parse(localStorage.getItem(prevKey)) || {};
-    if (prev.eveningNotes || prev.winOfDay) {
-      document.getElementById('prevNightSummary').innerHTML = `
-        ${prev.winOfDay ? `<p><strong>🏆 Win:</strong> ${prev.winOfDay}</p>` : ''}
-        ${prev.eveningNotes ? `<p style="margin-top:8px"><strong>📝 Notes:</strong> ${prev.eveningNotes}</p>` : ''}
-        <p style="margin-top:8px;font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">From yesterday's log</p>
-      `;
-    }
-  } catch(e) {}
+  // Sleep classification (H/T/L) inputs
+  const sleepClassifications = data.sleepClass || {};
+  const sleepMetrics = [
+    { key:'sleepDuration', label:'Sleep Duration', icon:'⏱️', desc:'Total time asleep vs. your baseline' },
+    { key:'sleepHR', label:'Heart Rate', icon:'❤️', desc:'Average HR during sleep' },
+    { key:'sleepResp', label:'Respiratory Rate', icon:'🫁', desc:'Breaths per minute during sleep' },
+    { key:'sleepTemp', label:'Wrist Temperature', icon:'🌡️', desc:'Wrist temp deviation from baseline' },
+    { key:'sleepO2', label:'Blood Oxygen', icon:'🩸', desc:'SpO2 during sleep' }
+  ];
+  document.getElementById('sleepClassification').innerHTML = sleepMetrics.map(m => `
+    <div class="metric-input-card">
+      <div class="metric-label">${m.icon} ${m.label}</div>
+      <div class="metric-sublabel">${m.desc}</div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="htl-btn ${sleepClassifications[m.key]==='High'?'htl-high-active':''}" onclick="setSleepClass('${m.key}','${m.label}','High')">High</button>
+        <button class="htl-btn ${sleepClassifications[m.key]==='Typical'?'htl-typical-active':''}" onclick="setSleepClass('${m.key}','${m.label}','Typical')">Typical</button>
+        <button class="htl-btn ${sleepClassifications[m.key]==='Low'?'htl-low-active':''}" onclick="setSleepClass('${m.key}','${m.label}','Low')">Low</button>
+      </div>
+    </div>
+  `).join('');
 }
 
 function toggleMorningCheck(key) {
@@ -1180,6 +1241,43 @@ function toggleMorningCheck(key) {
   if (!data.morningChecks) data.morningChecks = {};
   data.morningChecks[key] = !data.morningChecks[key];
   saveToday(data);
+  renderDashboard();
+}
+
+function saveYesterdayMetric(field, metricName, unit) {
+  const inputId = 'yd' + field.charAt(0).toUpperCase() + field.slice(1);
+  const idMap = { weight:'ydWeight', steps:'ydSteps', rhr:'ydRHR', hrv:'ydHRV' };
+  const val = parseFloat(document.getElementById(idMap[field]).value);
+  if (isNaN(val)) return;
+  // Use yesterday's date for these entries
+  const y = new Date(); y.setDate(y.getDate()-1);
+  const yesterdayStr = y.toLocaleDateString('en-US');
+  saveHistory('metric_'+field, val);
+  queueSync('Biometrics', {
+    Date: yesterdayStr,
+    Metric: metricName,
+    Value: val,
+    Unit: unit,
+    Notes: 'Logged morning after'
+  });
+  document.getElementById(idMap[field]).value = '';
+  showSaveBar();
+}
+
+function setSleepClass(key, label, classification) {
+  const data = loadToday();
+  if (!data.sleepClass) data.sleepClass = {};
+  data.sleepClass[key] = classification;
+  saveToday(data);
+  // Sync to Biometrics with yesterday's date
+  const y = new Date(); y.setDate(y.getDate()-1);
+  queueSync('Biometrics', {
+    Date: y.toLocaleDateString('en-US'),
+    Metric: 'Sleep_' + label.replace(/ /g,''),
+    Value: classification,
+    Unit: 'classification',
+    Notes: ''
+  });
   renderDashboard();
 }
 
@@ -1194,19 +1292,52 @@ function renderNutrition() {
   if (data.dinnerLog) { document.getElementById('dinnerLog').value = data.dinnerLog; document.getElementById('dinnerTag').textContent = '✓ Logged'; document.getElementById('dinnerTag').className = 'tag-sm tag-green'; }
   if (data.preworkoutLog) { document.getElementById('preworkoutLog').value = data.preworkoutLog; }
 
-  // Supplement log
-  const suppTaken = data.suppTaken || {};
-  document.getElementById('suppLog').innerHTML = `<div class="supp-checklist">${SUPPLEMENTS.map((s,i) => `
+  // Get all items: supplements + user-added medications
+  const allItems = buildAllSuppMedList();
+  const taken = data.suppTaken || {};
+  const doseOverrides = data.doseOverrides || {};
+
+  document.getElementById('suppLog').innerHTML = `<div class="supp-checklist">${allItems.map((s, idx) => {
+    const tk = taken[idx];
+    const customDose = doseOverrides[idx];
+    const displayDose = customDose !== undefined ? customDose : s.defaultDose;
+    const typeBadge = s.type === 'Medication' ? '<span class="tag-sm tag-amber">MED</span>' : '<span class="tag-sm tag-green">SUPP</span>';
+    return `
     <div class="supp-item">
-      <div class="supp-check ${suppTaken[i]?'done':''}" onclick="toggleSupp(${i})">${suppTaken[i]?'✓':''}</div>
-      <div>
-        <div class="supp-name">${s.name}</div>
-        <div class="supp-detail">${s.detail}</div>
-        <div class="supp-time">${s.time}</div>
-        <input class="time-taken-input" type="time" value="${suppTaken[i+'_time']||''}" placeholder="time taken" onchange="saveSuppTime(${i},this.value)" title="Time taken">
+      <div class="supp-check ${tk?'done':''}" onclick="toggleSupp(${idx})">${tk?'✓':''}</div>
+      <div style="flex:1">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span class="supp-name">${s.name}</span>
+          ${typeBadge}
+        </div>
+        <div class="supp-detail">${s.keyIngredient ? '<em>'+s.keyIngredient+'</em> · ' : ''}${s.detail || ''}</div>
+        <div class="supp-time">${s.time || ''}</div>
+        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">DOSE:</span>
+          <input type="number" step="any" value="${displayDose}" onchange="updateDose(${idx},this.value)" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
+          <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${s.doseUnit}</span>
+          <input class="time-taken-input" type="time" value="${taken[idx+'_time']||''}" onchange="saveSuppTime(${idx},this.value)" title="Time taken" style="margin:0">
+          ${s.type === 'Medication' ? `<button onclick="removeMedication(${idx})" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--rust);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer">Remove</button>` : ''}
+        </div>
       </div>
     </div>
-  `).join('')}</div>`;
+  `;}).join('')}</div>`;
+}
+
+// Build the combined list of supplements + user medications
+function buildAllSuppMedList() {
+  const list = SUPPLEMENTS.map(s => ({...s, type:'Supplement'}));
+  const meds = getMedications();
+  meds.forEach(m => list.push({
+    name: m.name,
+    keyIngredient: m.keyIngredient || '',
+    defaultDose: m.defaultDose,
+    doseUnit: m.doseUnit,
+    detail: m.detail || '',
+    time: m.time || '',
+    type: 'Medication'
+  }));
+  return list;
 }
 
 function saveMealLog() {
@@ -1218,27 +1349,82 @@ function saveMealLog() {
   if (dinnerLog) { document.getElementById('dinnerTag').textContent = '✓ Logged'; document.getElementById('dinnerTag').className = 'tag-sm tag-green'; }
 }
 
-function toggleSupp(i) {
+function updateDose(idx, val) {
+  const data = loadToday();
+  if (!data.doseOverrides) data.doseOverrides = {};
+  data.doseOverrides[idx] = parseFloat(val) || 0;
+  saveToday(data);
+}
+
+function toggleSupp(idx) {
   const data = loadToday();
   if (!data.suppTaken) data.suppTaken = {};
-  data.suppTaken[i] = !data.suppTaken[i];
-  if (data.suppTaken[i] && !data.suppTaken[i+'_time']) {
+  data.suppTaken[idx] = !data.suppTaken[idx];
+  if (data.suppTaken[idx] && !data.suppTaken[idx+'_time']) {
     const now = new Date();
-    data.suppTaken[i+'_time'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    data.suppTaken[idx+'_time'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   }
   saveToday(data);
-  // Sync if marked as taken
-  if (data.suppTaken[i]) {
-    const SUPP_NAMES = ['GoBiotix Probiotic','Vitamin D3+K2','Elderberry/C/Zinc/Quercetin','Omega-3 Fish Oil','Metamucil Psyllium','Magnesium Glycinate'];
-    queueSync('Supplements', {
-      Date: new Date().toLocaleDateString('en-US'),
-      Supplement: SUPP_NAMES[i] || ('Supplement '+(i+1)),
-      Taken: 'Yes',
-      TimeTaken: data.suppTaken[i+'_time'] || '',
-      Notes: ''
-    });
+  if (data.suppTaken[idx]) {
+    const allItems = buildAllSuppMedList();
+    const item = allItems[idx];
+    if (item) {
+      const doseOverrides = data.doseOverrides || {};
+      const actualDose = doseOverrides[idx] !== undefined ? doseOverrides[idx] : item.defaultDose;
+      queueSync('Supplements_Meds', {
+        Date: new Date().toLocaleDateString('en-US'),
+        Type: item.type,
+        Name: item.name,
+        KeyIngredient: item.keyIngredient || '',
+        DoseAmount: actualDose,
+        DoseUnit: item.doseUnit,
+        Taken: 'Yes',
+        TimeTaken: data.suppTaken[idx+'_time'] || '',
+        Notes: ''
+      });
+    }
   }
   renderNutrition();
+  renderEvening();
+}
+
+function addMedication() {
+  const name = document.getElementById('newMedName').value.trim();
+  const keyIngredient = document.getElementById('newMedIngredient').value.trim();
+  const dose = parseFloat(document.getElementById('newMedDose').value);
+  const unit = document.getElementById('newMedUnit').value;
+  const time = document.getElementById('newMedTime').value.trim();
+  if (!name) { alert('Please enter a medication name'); return; }
+  if (isNaN(dose) || dose <= 0) { alert('Please enter a valid dose amount'); return; }
+  const meds = getMedications();
+  meds.push({ name, keyIngredient, defaultDose: dose, doseUnit: unit, time: time || 'As prescribed', detail: '' });
+  setMedications(meds);
+  document.getElementById('newMedName').value = '';
+  document.getElementById('newMedIngredient').value = '';
+  document.getElementById('newMedDose').value = '';
+  document.getElementById('newMedTime').value = '';
+  renderNutrition();
+  renderEvening();
+  showSaveBar();
+}
+
+function removeMedication(idx) {
+  // idx is into the combined list; the medication portion starts at SUPPLEMENTS.length
+  const medIdx = idx - SUPPLEMENTS.length;
+  if (medIdx < 0) { alert('Default supplements cannot be removed.'); return; }
+  if (!confirm('Remove this medication from your list?')) return;
+  const meds = getMedications();
+  meds.splice(medIdx, 1);
+  setMedications(meds);
+  // Also clear any "taken" state for this index going forward
+  const data = loadToday();
+  if (data.suppTaken) {
+    delete data.suppTaken[idx];
+    delete data.suppTaken[idx+'_time'];
+    saveToday(data);
+  }
+  renderNutrition();
+  renderEvening();
 }
 
 function saveSuppTime(i, val) {
@@ -1259,9 +1445,9 @@ function toggleRest(id) {
 // BIOMETRICS
 // ═══════════════════════════════════════
 function saveMetric(type) {
-  const inputs = { weight:'weightInput', waist:'waistInput', steps:'stepsInput', hr:'hrInput', sleep:'sleepInput', hrv:'hrvInput' };
-  const units = { weight:'lbs', waist:'in', steps:'steps', hr:'BPM', sleep:'hrs', hrv:'ms' };
-  const labels = { weight:'Weight', waist:'Waist', steps:'Steps', hr:'RestingHR', sleep:'Sleep', hrv:'HRV' };
+  const inputs = { weight:'weightInput', steps:'stepsInput', hr:'hrInput', sleep:'sleepInput', hrv:'hrvInput' };
+  const units = { weight:'lbs', steps:'steps', hr:'BPM', sleep:'hrs', hrv:'ms' };
+  const labels = { weight:'Weight', steps:'Steps', hr:'RestingHR', sleep:'Sleep', hrv:'HRV' };
   const val = parseFloat(document.getElementById(inputs[type]).value);
   if (isNaN(val)) return;
   saveHistory('metric_'+type, val);
@@ -1352,6 +1538,7 @@ function renderEvening() {
       </div>
       <div class="stretch-body2" id="sb_${i}">
         <div class="stretch-desc">${s.desc}</div>
+        ${s.repBased ? `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text2);text-align:center">🔁 Rep-based — count your reps, no timer needed</div>` : `
         <button class="stretch-timer-btn" onclick="startInlineTimer(${i},${s.timerSec})">
           ⏱ Start ${s.duration} Timer
         </button>
@@ -1361,25 +1548,26 @@ function renderEvening() {
             <button class="itbtn itbtn-secondary" onclick="stopInlineTimer(${i})">Stop</button>
             <button class="itbtn itbtn-primary" id="itbtn_${i}" onclick="toggleInlineTimer(${i})">Pause</button>
           </div>
-        </div>
+        </div>`}
       </div>
     </div>
   `).join('');
 
-  // Evening supplement check
+  // Evening supplement & medication check
   const suppTaken = data.suppTaken || {};
-  document.getElementById('eveningSuppCheck').innerHTML = SUPPLEMENTS.map((s, i) => `
+  const allItems = buildAllSuppMedList();
+  document.getElementById('eveningSuppCheck').innerHTML = allItems.map((s, idx) => {
+    const typeBadge = s.type === 'Medication' ? '<span class="tag-sm tag-amber" style="margin-left:6px">MED</span>' : '';
+    return `
     <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div class="supp-check ${suppTaken[i]?'done':''}" onclick="toggleSupp(${i})">${suppTaken[i]?'✓':''}</div>
+      <div class="supp-check ${suppTaken[idx]?'done':''}" onclick="toggleSupp(${idx})">${suppTaken[idx]?'✓':''}</div>
       <div>
-        <div style="font-size:13px;font-weight:500">${s.name}</div>
-        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${s.time}${suppTaken[i+'_time']?' · Taken: '+suppTaken[i+'_time']:''}</div>
+        <div style="font-size:13px;font-weight:500">${s.name}${typeBadge}</div>
+        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${s.time || ''}${suppTaken[idx+'_time']?' · Taken: '+suppTaken[idx+'_time']:''}</div>
       </div>
     </div>
-  `).join('');
+  `;}).join('');
 
-  if (data.eveningNotes) document.getElementById('eveningNotes').value = data.eveningNotes;
-  if (data.winOfDay) document.getElementById('winOfDay').value = data.winOfDay;
   if (data.screenTime) { document.getElementById('screenTimeInput').value = data.screenTime; updateScreenFeedback(data.screenTime); }
 }
 
@@ -1431,9 +1619,6 @@ function stopInlineTimer(i) {
   document.getElementById('it_'+i).classList.remove('show');
 }
 
-function saveEveningNotes() { saveToday({ eveningNotes: document.getElementById('eveningNotes').value }); }
-function saveWin() { saveToday({ winOfDay: document.getElementById('winOfDay').value }); }
-
 function saveScreenTime() {
   const val = parseFloat(document.getElementById('screenTimeInput').value);
   if (isNaN(val)) return;
@@ -1451,15 +1636,16 @@ function updateScreenFeedback(val) {
 function submitEveningLog() {
   const data = loadToday();
   const suppTaken = data.suppTaken || {};
-  const suppCount = SUPPLEMENTS.filter((s,i) => suppTaken[i]).length;
+  const allItems = buildAllSuppMedList();
+  const suppCount = allItems.filter((s,idx) => suppTaken[idx]).length;
   const stretchCount = Object.values(data.stretchDone||{}).filter(Boolean).length;
-  saveToday({ eveningSubmitted: true, eveningNotes: document.getElementById('eveningNotes').value, winOfDay: document.getElementById('winOfDay').value });
+  saveToday({ eveningSubmitted: true });
   // Sync nutrition entries
   const today = new Date().toLocaleDateString('en-US');
   if (data.lunchLog) queueSync('Nutrition', { Date: today, Meal: 'Lunch', Details: data.lunchLog, Restaurant: '', Notes: '' });
   if (data.dinnerLog) queueSync('Nutrition', { Date: today, Meal: 'Dinner', Details: data.dinnerLog, Restaurant: '', Notes: '' });
   if (data.preworkoutLog) queueSync('Nutrition', { Date: today, Meal: 'Pre/Post Workout', Details: data.preworkoutLog, Restaurant: '', Notes: '' });
-  alert(`✅ Evening log saved!\n\nSupplements taken: ${suppCount}/${SUPPLEMENTS.length}\nStretches completed: ${stretchCount}/${STRETCHES.length}\n\nSleep well — your body recovers and repairs overnight. 💪`);
+  alert(`✅ Evening log saved!\n\nSupplements/Meds taken: ${suppCount}/${allItems.length}\nStretches completed: ${stretchCount}/${STRETCHES.length}\n\nSleep well — your body recovers and repairs overnight. 💪`);
 }
 
 // ═══════════════════════════════════════
