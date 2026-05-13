@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,6 +41,51 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
   font-size:11px;
   color:var(--text2);
 }
+.date-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius:20px;
+  padding: 5px 10px;
+  font-family:'DM Mono',monospace;
+  font-size:11px;
+  color:var(--text2);
+  cursor:pointer;
+  user-select:none;
+  transition:all 0.15s;
+}
+.date-pill:active { background: var(--surface); }
+.date-pill.override-active {
+  background: var(--accent);
+  color: #000;
+  font-weight:700;
+  border-color: var(--accent);
+}
+#wBackDateBanner {
+  background: var(--accent);
+  color: #000;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family:'DM Mono',monospace;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-top:8px;
+  border-radius:8px;
+  font-weight:600;
+}
+#wBackDateBanner .reset-btn {
+  background: rgba(0,0,0,0.15);
+  border: 1px solid rgba(0,0,0,0.3);
+  color:#000;
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:11px;
+  cursor:pointer;
+  font-weight:700;
+  flex-shrink:0;
+}
+#wDatePickerModal[style*="display:flex"], #wDatePickerModal[style*="display: flex"] { display:flex !important; }
 .day-tabs {
   display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;
   scrollbar-width:none;
@@ -474,11 +520,26 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
   <div class="header-top">
     <div class="app-title">⚡ WORKOUT</div>
     <div style="display:flex;gap:8px;align-items:center">
+      <div class="date-pill" id="wDateBadge" onclick="openWDatePicker()" title="Tap to log for a different date"></div>
       <button onclick="showSyncPanel()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:5px 10px;border-radius:20px;font-size:11px;cursor:pointer;font-family:'DM Mono',monospace">⚙ SYNC</button>
       <div class="week-badge" id="weekBadge">WEEK A</div>
     </div>
   </div>
   <div class="day-tabs" id="dayTabs"></div>
+  <div id="wBackDateBanner" style="display:none"></div>
+</div>
+
+<!-- Date picker modal -->
+<div id="wDatePickerModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px;max-width:340px;width:100%">
+    <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--accent);font-size:18px;margin-bottom:6px">LOG FOR WHICH DATE?</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px">All workout entries will use this date until you reset.</p>
+    <input type="date" id="wDatePickerInput" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:14px;box-sizing:border-box;color:var(--text)">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeWDatePicker()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Cancel</button>
+      <button onclick="applyWDateOverride()" style="flex:1;background:var(--accent);border:none;color:#000;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Apply</button>
+    </div>
+  </div>
 </div>
 
 <div class="content" id="mainContent"></div>
@@ -785,6 +846,77 @@ WORKOUTS.B.SAT_PB = WORKOUTS.A.SAT_PB;
 WORKOUTS.B.SUN = WORKOUTS.A.SUN;
 
 // ═══════════════════════════════════════
+// DATE OVERRIDE SYSTEM (back-date mode)
+// ═══════════════════════════════════════
+let wDateOverride = null;
+function getActiveDate() { return wDateOverride ? new Date(wDateOverride) : new Date(); }
+function getActiveDateString() { return getActiveDate().toLocaleDateString('en-US'); }
+function isDateOverridden() { return wDateOverride !== null; }
+
+function openWDatePicker() {
+  const modal = document.getElementById('wDatePickerModal');
+  const input = document.getElementById('wDatePickerInput');
+  const d = getActiveDate();
+  input.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const t = new Date();
+  input.max = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  modal.style.display = 'flex';
+}
+
+function closeWDatePicker() {
+  document.getElementById('wDatePickerModal').style.display = 'none';
+}
+
+function applyWDateOverride() {
+  const input = document.getElementById('wDatePickerInput');
+  if (!input.value) { closeWDatePicker(); return; }
+  const [y, m, d] = input.value.split('-').map(Number);
+  const selected = new Date(y, m-1, d);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  selected.setHours(0,0,0,0);
+  if (selected.getTime() === today.getTime()) {
+    wDateOverride = null;
+  } else {
+    wDateOverride = selected;
+    // Also auto-shift the day tab to match the override's day-of-week
+    const newJsDay = selected.getDay();
+    currentDayIdx = dayMap[newJsDay];
+  }
+  closeWDatePicker();
+  updateWDateUI();
+  loadState();
+  renderAll();
+}
+
+function resetWDateToToday() {
+  wDateOverride = null;
+  // Reset day tab to actual today
+  currentDayIdx = dayMap[new Date().getDay()];
+  updateWDateUI();
+  loadState();
+  renderAll();
+}
+
+function updateWDateUI() {
+  const badge = document.getElementById('wDateBadge');
+  const banner = document.getElementById('wBackDateBanner');
+  if (!badge) return;
+  const active = getActiveDate();
+  const dateStr = active.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+  if (isDateOverridden()) {
+    badge.textContent = '🗓 ' + dateStr;
+    badge.classList.add('override-active');
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>⚠️ Back-dating: logging for <strong>${active.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</strong></span><button class="reset-btn" onclick="resetWDateToToday()">Reset</button>`;
+  } else {
+    badge.textContent = dateStr;
+    badge.classList.remove('override-active');
+    banner.style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════
 const DAYS = ['MON','TUE','WED','THU','FRI','SAT','SUN'];
@@ -859,6 +991,7 @@ function renderTabs() {
 }
 
 function renderAll() {
+  updateWDateUI();
   renderTabs();
   const workout = WORKOUTS[currentWeek][getDayKey()];
   const content = document.getElementById('mainContent');
@@ -1013,6 +1146,21 @@ function renderAll() {
     ${pct === 100 ? '✓ WORKOUT COMPLETE — LOG SAVED' : 'MARK WORKOUT COMPLETE'}
   </button>`;
 
+  // Sauna recovery footer (Mon/Wed/Thu/Fri)
+  // Day index: MON=0, TUE=1, WED=2, THU=3, FRI=4, SAT=5, SUN=6
+  const saunaDays = [0, 2, 3, 4]; // Mon, Wed, Thu, Fri
+  if (saunaDays.includes(currentDayIdx)) {
+    html += `<div class="section-label" style="margin-top:24px">🔥 Today's Recovery</div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--accent);font-size:15px;margin-bottom:6px">SAUNA RECOMMENDED</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.6">
+        <div style="margin-bottom:4px">🏋️ <strong>At the gym</strong> (dry sauna): 15–20 min @ 175–195°F</div>
+        <div>🏠 <strong>At home</strong> (infrared): 30–40 min @ 135°F max</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace">💧 16oz water before · 16–24oz after · skip if within 60min of bedtime</div>
+    </div>`;
+  }
+
   content.innerHTML = html;
 }
 
@@ -1138,7 +1286,7 @@ async function testSyncWorkout() {
   document.getElementById('swSyncStatus').textContent = 'Sending test...';
   document.getElementById('swSyncStatus').style.color = 'var(--accent2)';
   await sendToSheetW('Workouts', {
-    Date: new Date().toLocaleDateString('en-US'),
+    Date: getActiveDateString(),
     Week: 'TEST',
     Day: 'TEST',
     WorkoutTitle: 'Connection Test',
@@ -1158,7 +1306,7 @@ const _origCompleteWorkout = completeWorkout;
 completeWorkout = async function() {
   const workout = WORKOUTS[currentWeek][getDayKey()];
   if (!workout || !workout.exercises) { _origCompleteWorkout(); return; }
-  const today = new Date().toLocaleDateString('en-US');
+  const today = getActiveDateString();
   const duration = formatSwTime(swSeconds);
 
   if (getAutoSyncW() && getSyncUrlW()) {
