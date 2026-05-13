@@ -933,6 +933,17 @@ textarea.notes-big::placeholder { color:var(--text3); }
   <div class="section-head">Sync Status</div>
 
   <div class="card">
+    <h3>🔬 Diagnostics</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Test each data type individually to find exactly what's failing.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="save-metric-btn" onclick="diagTest('Biometrics', {Date: getActiveDateString(), Metric:'DIAG_TEST', Value:'123', Unit:'test', Notes:'diagnostic'}, this)">Test Biometrics tab</button>
+      <button class="save-metric-btn" onclick="diagTest('Health_Events', {Date: getActiveDateString(), Event:'DIAG_TEST — safe to delete'}, this)">Test Health_Events tab</button>
+      <button class="save-metric-btn" onclick="diagTest('Supplements_Meds', {Date: getActiveDateString(), Type:'Supplement', Name:'DIAG_TEST', Ingredient:'Test', IngredientAmount:1, IngredientUnit:'mg', DoseTaken:1, DoseUnit:'capsule', TimeTaken:'', Notes:'diagnostic'}, this)">Test Supplements_Meds tab</button>
+    </div>
+    <div id="diagResult" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--text);background:var(--surface2);padding:10px;border-radius:8px;display:none;word-break:break-all;white-space:pre-wrap"></div>
+  </div>
+
+  <div class="card">
     <h3>📊 Pending Sync Queue</h3>
     <p style="font-size:13px;color:var(--text2)">When you're offline or sync fails, entries queue up here and retry automatically.</p>
     <div id="queueStatus" style="margin-top:10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--text)"></div>
@@ -1393,6 +1404,44 @@ function updateQueueDisplay() {
   if (!el) return;
   const queue = getQueue();
   el.textContent = queue.length === 0 ? '✓ All caught up — no pending entries' : `⏳ ${queue.length} entries waiting to sync`;
+}
+
+async function diagTest(tabName, rowData, btn) {
+  const url = getSyncUrl();
+  if (!url) { alert('No sync URL saved.'); return; }
+  const el = document.getElementById('diagResult');
+  el.style.display = 'block';
+  el.textContent = 'Sending to ' + tabName + '...';
+  btn.disabled = true;
+  const payload = { tab: tabName, data: rowData, timestamp: new Date().toISOString() };
+  try {
+    // Use cors mode so we can read the actual response
+    const response = await fetch(url, {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text();
+    el.textContent = tabName + ' response:\n' + text;
+    el.style.color = text.includes('"success":true') ? 'var(--sage)' : 'var(--rust)';
+  } catch (err) {
+    // CORS blocked — fall back to no-cors and report that
+    try {
+      await fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      el.textContent = tabName + ': Sent (no-cors — cannot read response). Check your Sheet — did a row appear?';
+      el.style.color = 'var(--gold)';
+    } catch(e2) {
+      el.textContent = tabName + ' FAILED: ' + e2.message;
+      el.style.color = 'var(--rust)';
+    }
+  }
+  btn.disabled = false;
 }
 
 async function testSync() {
