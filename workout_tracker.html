@@ -599,7 +599,6 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
   </div>
   <div class="sw-controls">
     <button class="sw-btn sw-stop" id="swResetBtn" onclick="resetStopwatch()">Reset</button>
-    <button class="sw-btn sw-start" id="swStartBtn" onclick="toggleStopwatch()">Start</button>
   </div>
 </div>
 
@@ -1055,6 +1054,11 @@ function renderAll() {
     html += `<div class="pre-workout"><h4>⚡ Pre-Workout</h4><p>${workout.preWorkout}</p></div>`;
   }
 
+  // START TIMER BUTTON — after pre-workout, before warm-up
+  html += `<button id="swStartBtn" onclick="toggleStopwatch()" style="width:100%;padding:14px;margin:12px 0;background:${swRunning ? 'var(--accent2)' : 'var(--accent)'};color:#000;border:none;border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2px;cursor:pointer;transition:all 0.15s">
+    ${swRunning ? '⏸ PAUSE TIMER' : (swSeconds > 0 ? '▶ RESUME TIMER' : '▶ START WORKOUT TIMER')}
+  </button>`;
+
   // Warm-up
   if (workout.warmup) {
     html += `<div class="section-label">Warm-Up</div>
@@ -1084,15 +1088,16 @@ function renderAll() {
             <div class="set-label">Set</div>
             <div class="set-label">Weight (lbs)</div>
             <div class="set-label">Reps</div>
-            <div class="set-label">✓</div>
           </div>`;
         for (let s = 1; s <= sets; s++) {
           const sd = (setData[key] && setData[key][s]) || {};
+          const lastWeight = getLastWeight(ex.name, s);
+          const prefillWeight = sd.weight || lastWeight || '';
+          const prefillReps = sd.reps || ex.reps || '';
           setRows += `<div class="set-row">
             <div class="set-num">${s}</div>
-            <input class="set-input" type="number" placeholder="lbs" value="${sd.weight||''}" onchange="saveSetData('${key}',${s},'weight',this.value)" oninput="saveSetData('${key}',${s},'weight',this.value)">
-            <input class="set-input" type="number" placeholder="reps" value="${sd.reps||''}" onchange="saveSetData('${key}',${s},'reps',this.value)" oninput="saveSetData('${key}',${s},'reps',this.value)">
-            <button class="set-done-btn ${sd.done?'done':''}" onclick="toggleSetDone('${key}',${s})">${sd.done?'✓':'○'}</button>
+            <input class="set-input" type="number" placeholder="lbs" value="${prefillWeight}" onchange="saveSetData('${key}',${s},'weight',this.value)" oninput="saveSetData('${key}',${s},'weight',this.value)">
+            <input class="set-input" type="number" placeholder="${ex.reps}" value="${sd.reps||''}" onchange="saveSetData('${key}',${s},'reps',this.value)" oninput="saveSetData('${key}',${s},'reps',this.value)">
           </div>`;
         }
         setRows += '</div>';
@@ -1114,6 +1119,11 @@ function renderAll() {
         </div>
       </div>`;
     });
+
+    // STOP TIMER BUTTON — after last exercise, before post-workout
+    html += `<button onclick="stopStopwatch()" style="width:100%;padding:14px;margin:12px 0;background:var(--surface2);color:var(--text2);border:1px solid var(--border);border-radius:10px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;cursor:pointer">
+      ⏹ STOP WORKOUT TIMER
+    </button>`;
   }
 
   // Post workout
@@ -1127,9 +1137,12 @@ function renderAll() {
     workout.recovery.forEach((r, i) => {
       const key = `rec_${i}`;
       const done = recoveryDone[key];
+      // Escape title for inline JS
+      const safeTitle = r.title.replace(/'/g,"\\'");
+      const safeIcon = (r.icon||'').replace(/'/g,"\\'");
       html += `<div class="recovery-card">
         <div class="recovery-header">
-          <div class="recovery-check ${done?'done':''}" onclick="toggleRecovery('${key}')">${done?'✓':''}</div>
+          <div class="recovery-check ${done?'done':''}" onclick="toggleRecovery('${key}','${safeTitle}','${safeIcon}')">${done?'✓':''}</div>
           <div class="recovery-title">${r.icon} ${r.title}</div>
         </div>
         <div class="recovery-detail">${r.detail}</div>
@@ -1146,18 +1159,17 @@ function renderAll() {
     ${pct === 100 ? '✓ WORKOUT COMPLETE — LOG SAVED' : 'MARK WORKOUT COMPLETE'}
   </button>`;
 
-  // Sauna recovery footer (Mon/Wed/Thu/Fri)
-  // Day index: MON=0, TUE=1, WED=2, THU=3, FRI=4, SAT=5, SUN=6
+  // Home Sauna card (Mon/Wed/Thu/Fri) — submitted independently since done later
   const saunaDays = [0, 2, 3, 4]; // Mon, Wed, Thu, Fri
   if (saunaDays.includes(currentDayIdx)) {
-    html += `<div class="section-label" style="margin-top:24px">🔥 Today's Recovery</div>
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
-      <div style="font-family:'Bebas Neue',sans-serif;letter-spacing:1px;color:var(--accent);font-size:15px;margin-bottom:6px">SAUNA RECOMMENDED</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.6">
-        <div style="margin-bottom:4px">🏋️ <strong>At the gym</strong> (dry sauna): 15–20 min @ 175–195°F</div>
-        <div>🏠 <strong>At home</strong> (infrared): 30–40 min @ 135°F max</div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px;font-family:'DM Mono',monospace">💧 16oz water before · 16–24oz after · skip if within 60min of bedtime</div>
+    const today = getActiveDateString();
+    const alreadySubmitted = localStorage.getItem('homeSaunaSubmitted_' + today) === 'true';
+    html += `<div class="section-label" style="margin-top:24px">🏠 Home Sauna</div>
+    <div class="recovery-card">
+      <div class="recovery-detail" style="margin-bottom:12px">Infrared sauna at home — log this when you're done, even if it's later in the evening.<br><strong>30–40 min @ 135°F max.</strong> 💧 16oz before · 16–24oz after.</div>
+      <button id="homeSaunaBtn" onclick="submitHomeSauna()" style="width:100%;padding:12px;background:${alreadySubmitted?'#3dd68c':'var(--surface2)'};color:${alreadySubmitted?'#000':'var(--text2)'};border:1px solid ${alreadySubmitted?'#3dd68c':'var(--border)'};border-radius:8px;font-family:'DM Mono',monospace;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer">
+        ${alreadySubmitted ? '✓ HOME SAUNA SUBMITTED' : '🏠 SUBMIT HOME SAUNA'}
+      </button>
     </div>`;
   }
 
@@ -1186,25 +1198,82 @@ function toggleComplete(key) {
   // Scroll to maintain position
 }
 
-function toggleRecovery(key) {
+function toggleRecovery(key, title, icon) {
   recoveryDone[key] = !recoveryDone[key];
   saveState();
+  // Sync to Workouts sheet when marked done
+  if (recoveryDone[key] && getSyncUrlW()) {
+    const today = getActiveDateString();
+    const workout = WORKOUTS[currentWeek][getDayKey()];
+    sendToSheetW('Workouts', {
+      Date: today,
+      Week: currentWeek,
+      Day: DAY_LABELS[currentDayIdx],
+      WorkoutTitle: workout ? workout.title : DAY_LABELS[currentDayIdx],
+      Exercise: (icon ? icon + ' ' : '') + title,
+      Set: '',
+      Reps: '',
+      Weight: '',
+      Duration: '',
+      Notes: 'Recovery — Gym'
+    });
+  }
   renderAll();
+}
+
+function submitHomeSauna() {
+  const btn = document.getElementById('homeSaunaBtn');
+  if (btn) { btn.textContent = '⏳ Submitting...'; btn.disabled = true; }
+  const today = getActiveDateString();
+  const workout = WORKOUTS[currentWeek][getDayKey()];
+  sendToSheetW('Workouts', {
+    Date: today,
+    Week: currentWeek,
+    Day: DAY_LABELS[currentDayIdx],
+    WorkoutTitle: workout ? workout.title : DAY_LABELS[currentDayIdx],
+    Exercise: '🏠 Home Infrared Sauna',
+    Set: '',
+    Reps: '',
+    Weight: '',
+    Duration: '',
+    Notes: 'Recovery — Home'
+  }).then(() => {
+    if (btn) { btn.textContent = '✓ Submitted'; btn.style.background = '#3dd68c'; btn.style.color = '#000'; btn.disabled = false; }
+    localStorage.setItem('homeSaunaSubmitted_' + today, 'true');
+  });
 }
 
 function saveSetData(exKey, setNum, field, val) {
   if (!setData[exKey]) setData[exKey] = {};
   if (!setData[exKey][setNum]) setData[exKey][setNum] = {};
   setData[exKey][setNum][field] = val;
+  // Persist weight as "last used" for this exercise+set across sessions
+  if (field === 'weight' && val) {
+    const workout = WORKOUTS[currentWeek][getDayKey()];
+    if (workout && workout.exercises) {
+      const exIdx = parseInt(exKey.replace('ex_',''));
+      const ex = workout.exercises[exIdx];
+      if (ex) saveLastWeight(ex.name, setNum, val);
+    }
+  }
   saveState();
 }
 
-function toggleSetDone(exKey, setNum) {
-  if (!setData[exKey]) setData[exKey] = {};
-  if (!setData[exKey][setNum]) setData[exKey][setNum] = {};
-  setData[exKey][setNum].done = !setData[exKey][setNum].done;
-  saveState();
-  renderAll();
+function getLastWeight(exName, setNum) {
+  try {
+    const stored = JSON.parse(localStorage.getItem('last_weights') || '{}');
+    const key = exName + '_set' + setNum;
+    return stored[key] || '';
+  } catch(e) { return ''; }
+}
+
+function saveLastWeight(exName, setNum, weight) {
+  try {
+    const stored = JSON.parse(localStorage.getItem('last_weights') || '{}');
+    const key = exName + '_set' + setNum;
+    stored[key] = weight;
+    localStorage.setItem('last_weights', JSON.stringify(stored));
+  } catch(e) {}
 }
 
 function saveNotes(val) { workoutNotes = val; saveState(); }
@@ -1372,6 +1441,40 @@ completeWorkout = async function() {
 // ═══════════════════════════════════════
 // REST TIMER
 // ═══════════════════════════════════════
+// ═══════════════════════════════════════
+// ALERT: VIBRATION + AUDIO TONE
+// ═══════════════════════════════════════
+function alertOnComplete() {
+  // 1. Vibration — works on Android; inconsistent on iOS but worth trying
+  try {
+    if (window.navigator && navigator.vibrate) {
+      navigator.vibrate([300, 100, 300, 100, 500]);
+    }
+  } catch(e) {}
+
+  // 2. Audio tone — reliable on all devices including iOS
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    // Three short beeps
+    const beepAt = (startTime, freq, duration) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.4, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    };
+    const t = ctx.currentTime;
+    beepAt(t,       880, 0.15);
+    beepAt(t + 0.2, 880, 0.15);
+    beepAt(t + 0.4, 1100, 0.4);
+  } catch(e) {}
+}
+
 function startTimer(seconds) {
   timerTotal = seconds;
   timerSeconds = seconds;
@@ -1391,7 +1494,7 @@ function tickTimer() {
     document.getElementById('timerMsg').textContent = '✓ Rest complete — next set!';
     document.getElementById('timerDisplay').className = 'timer-display done';
     document.getElementById('timerToggleBtn').textContent = 'Done';
-    try { if (window.navigator.vibrate) window.navigator.vibrate([200,100,200]); } catch(e){}
+    alertOnComplete();
   }
   updateTimerDisplay();
 }
@@ -1438,23 +1541,33 @@ function formatSwTime(s) {
   return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
 }
 function updateSwDisplay() { document.getElementById('swDisplay').textContent = formatSwTime(swSeconds); }
+
 function toggleStopwatch() {
   swRunning = !swRunning;
-  const btn = document.getElementById('swStartBtn');
   if (swRunning) {
-    btn.textContent = 'Pause'; btn.className = 'sw-btn sw-pause';
     swInterval = setInterval(() => { swSeconds++; updateSwDisplay(); saveState(); }, 1000);
   } else {
-    btn.textContent = 'Resume'; btn.className = 'sw-btn sw-start';
     clearInterval(swInterval);
   }
+  // Re-render to update inline start button label
+  renderAll();
 }
+
+function stopStopwatch() {
+  // Freeze the timer — time is locked in, won't change
+  if (swRunning) {
+    swRunning = false;
+    clearInterval(swInterval);
+    saveState();
+    renderAll();
+  }
+}
+
 function resetStopwatch() {
   clearInterval(swInterval); swRunning = false; swSeconds = 0;
   updateSwDisplay();
-  document.getElementById('swStartBtn').textContent = 'Start';
-  document.getElementById('swStartBtn').className = 'sw-btn sw-start';
   saveState();
+  renderAll();
 }
 
 // ═══════════════════════════════════════
