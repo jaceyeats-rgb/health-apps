@@ -1593,23 +1593,25 @@ function saveYesterdayMetric(field, metricName, unit) {
   const btnMap = { weight:'ydWeightBtn', steps:'ydStepsBtn', rhr:'ydRhrBtn', hrv:'ydHrvBtn' };
   const val = parseFloat(document.getElementById(idMap[field]).value);
   if (isNaN(val)) return;
-  // Use yesterday (relative to active date) for these entries
   const yesterdayStr = getYesterdayString();
   saveHistory('metric_'+field, val);
-  queueSync('Biometrics', {
+  document.getElementById(idMap[field]).value = '';
+  // Use sendToSheet directly with visible feedback
+  const btnId = btnMap[field];
+  setSubmitState(btnId, 'saving', 'Save');
+  sendToSheet('Biometrics', {
     Date: yesterdayStr,
     Metric: metricName,
     Value: val,
     Unit: unit,
     Notes: 'Logged morning after'
+  }).then(() => {
+    setSubmitState(btnId, 'submitted', 'Save');
+    setTimeout(() => setSubmitState(btnId, 'pending', 'Save'), 3000);
+  }).catch(() => {
+    setSubmitState(btnId, 'pending', 'Save');
+    alert('⚠️ Sync failed for ' + metricName + '. Check your Sync tab.');
   });
-  document.getElementById(idMap[field]).value = '';
-  // Visual confirmation - briefly green, then revert (since input clears)
-  const btn = document.getElementById(btnMap[field]);
-  if (btn) {
-    setSubmitState(btnMap[field], 'submitted', 'Save');
-    setTimeout(() => setSubmitState(btnMap[field], 'pending', 'Save'), 2000);
-  }
   showSaveBar();
 }
 
@@ -1644,21 +1646,23 @@ function saveSleepData() {
   // Sync each classification to Biometrics with yesterday's date (relative to active date)
   const yesterday = getYesterdayString();
   let count = 0;
-  keys.forEach(key => {
+  const syncPromises = keys.map(key => {
     const label = sleepLabels[key] || key;
-    queueSync('Biometrics', {
+    count++;
+    return sendToSheet('Biometrics', {
       Date: yesterday,
       Metric: 'Sleep_' + label.replace(/ /g,''),
       Value: sleepClass[key],
       Unit: 'classification',
       Notes: ''
     });
-    count++;
   });
-  const statusEl = document.getElementById('sleepSaveStatus');
-  statusEl.textContent = `✓ Saved ${count} sleep metrics for ${yesterday}`;
-  statusEl.style.color = 'var(--sage)';
-  setSubmitState('saveSleepBtn', 'submitted', '💾 Save Sleep Data');
+  Promise.all(syncPromises).then(() => {
+    const statusEl = document.getElementById('sleepSaveStatus');
+    statusEl.textContent = `✓ Saved ${count} sleep metrics for ${yesterday}`;
+    statusEl.style.color = 'var(--sage)';
+    setSubmitState('saveSleepBtn', 'submitted', '💾 Save Sleep Data');
+  });
   showSaveBar();
 }
 
@@ -1934,11 +1938,10 @@ function toggleSuppByName(name) {
       const actualDose = doseOverrides[name] !== undefined ? parseFloat(doseOverrides[name]) : item.defaultDose;
       const timeTaken = data.suppTaken[name+'__time'] || '';
       const today = getActiveDateString();
-      // Push one row per ingredient with multiplied amount
       if (item.ingredients && item.ingredients.length > 0) {
         item.ingredients.forEach(ing => {
           const totalAmount = (parseFloat(ing.amount) || 0) * actualDose;
-          queueSync('Supplements_Meds', {
+          sendToSheet('Supplements_Meds', {
             Date: today,
             Type: item.type,
             Name: item.name,
@@ -1952,8 +1955,7 @@ function toggleSuppByName(name) {
           });
         });
       } else {
-        // Fallback for items without structured ingredients
-        queueSync('Supplements_Meds', {
+        sendToSheet('Supplements_Meds', {
           Date: today,
           Type: item.type,
           Name: item.name,
@@ -2338,18 +2340,21 @@ function submitHealthEvent(slot) {
     alert('Please enter some text for Event '+slot+' before submitting.');
     return;
   }
-  setSubmitState('healthEvent'+slot+'Btn', 'saving', 'Submit Event '+slot);
-  // Save to today's data and sync
+  const btnId = 'healthEvent'+slot+'Btn';
+  setSubmitState(btnId, 'saving', 'Submit Event '+slot);
   const data = loadToday();
   data['healthEvent'+slot] = txt;
   data['healthEvent'+slot+'_submitted'] = true;
   saveToday(data);
-  queueSync('Health_Events', {
+  sendToSheet('Health_Events', {
     Date: getActiveDateString(),
     Event: txt
+  }).then(() => {
+    setSubmitState(btnId, 'submitted', 'Submit Event '+slot);
+  }).catch(() => {
+    setSubmitState(btnId, 'pending', 'Submit Event '+slot);
+    alert('⚠️ Sync failed for Health Event '+slot+'. Check your Sync tab.');
   });
-  // Show submitted state shortly after
-  setTimeout(() => setSubmitState('healthEvent'+slot+'Btn', 'submitted', 'Submit Event '+slot), 250);
   showSaveBar();
 }
 
