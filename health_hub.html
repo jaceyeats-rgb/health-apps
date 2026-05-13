@@ -596,7 +596,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
   <div id="sleepClassification"></div>
 
   <button class="submit-btn green" onclick="saveSleepData()" id="saveSleepBtn" style="margin-top:8px">💾 Save Sleep Data</button>
-  <div id="sleepSaveStatus" style="text-align:center;font-size:12px;color:var(--text2);margin-top:8px;min-height:16px"></div>
 
   <div id="saunaRecommendation"></div>
 
@@ -902,7 +901,7 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <button class="save-metric-btn" id="healthEvent3Btn" onclick="submitHealthEvent(3)" style="width:100%;margin-top:8px">Submit Event 3</button>
   </div>
 
-  <button class="submit-btn green" onclick="submitEveningLog()" id="eveningSubmitBtn">✓ Submit Evening Log</button>
+  <button class="submit-btn green" onclick="submitEveningLog()" id="eveningSubmitBtn" style="display:none">✓ Submit Evening Log</button>
 
 </div>
 
@@ -1668,16 +1667,11 @@ function setSleepClassLocal(key, label, classification) {
   const data = loadToday();
   if (!data.sleepClass) data.sleepClass = {};
   data.sleepClass[key] = classification;
-  // Track that label for sync later
   if (!data.sleepLabels) data.sleepLabels = {};
   data.sleepLabels[key] = label;
   saveToday(data);
   renderDashboard();
-  // Reset save status indicator since data changed
-  const statusEl = document.getElementById('sleepSaveStatus');
-  if (statusEl) statusEl.textContent = 'Unsaved changes — tap "Save Sleep Data" to sync';
-  if (statusEl) statusEl.style.color = 'var(--gold)';
-  // Reset the submit button to pending state
+  // Reset the submit button to pending state so user knows to save
   setSubmitState('saveSleepBtn', 'pending', '💾 Save Sleep Data');
 }
 
@@ -1687,9 +1681,7 @@ function saveSleepData() {
   const sleepLabels = data.sleepLabels || {};
   const keys = Object.keys(sleepClass);
   if (keys.length === 0) {
-    const statusEl = document.getElementById('sleepSaveStatus');
-    statusEl.textContent = 'Nothing to save — classify at least one metric first';
-    statusEl.style.color = 'var(--rust)';
+    alert('Classify at least one sleep metric before saving.');
     return;
   }
   // Sync each classification to Biometrics with yesterday's date (relative to active date)
@@ -1707,9 +1699,6 @@ function saveSleepData() {
     });
   });
   Promise.all(syncPromises).then(() => {
-    const statusEl = document.getElementById('sleepSaveStatus');
-    statusEl.textContent = `✓ Saved ${count} sleep metrics for ${yesterday}`;
-    statusEl.style.color = 'var(--sage)';
     setSubmitState('saveSleepBtn', 'submitted', '💾 Save Sleep Data');
   });
   showSaveBar();
@@ -1812,16 +1801,16 @@ function renderPillCard(item, idx, mode) {
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${typeBadge}${asNeededBadge}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')">${tk?'✓':''}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="flex:1">
-          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Dose Taken</div>
+          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Dose Taken</div>
           <div style="display:flex;align-items:center;gap:8px">
             <input type="number" step="any" value="${actualDose}" onchange="updateDoseByName('${escapeJs(item.name)}',this.value)" style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
             <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${item.doseUnit}${actualDose != 1 ? 's' : ''}</span>
-            <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px">
           </div>
         </div>
+        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')" style="flex-shrink:0">${tk?'✓':''}</div>
+        <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px;flex-shrink:0">
       </div>
     </div>
   `;
@@ -1930,17 +1919,17 @@ function renderPillsTabCard(item) {
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${typeBadge}${asNeededBadge}</div>
       </div>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
-        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')">${tk?'✓':''}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
         <div style="flex:1">
-          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Dose Taken</div>
+          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Dose Taken</div>
           <div style="display:flex;align-items:center;gap:8px">
             <input type="number" step="any" value="${actualDose}" onchange="updateDoseByName('${escapeJs(item.name)}',this.value)" style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
             <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${item.doseUnit}${actualDose != 1 ? 's' : ''}</span>
-            <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px">
           </div>
         </div>
-        <button onclick="deactivateByName('${escapeJs(item.name)}')" style="background:transparent;border:1px solid var(--border);color:var(--rust);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">Deactivate</button>
+        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')" style="flex-shrink:0">${tk?'✓':''}</div>
+        <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px;flex-shrink:0">
+        <button onclick="deactivateByName('${escapeJs(item.name)}')" style="background:transparent;border:1px solid var(--border);color:var(--rust);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer;flex-shrink:0">Deactivate</button>
       </div>
     </div>
   `;
@@ -1950,9 +1939,23 @@ function saveMealLog() {
   const lunchLog = document.getElementById('lunchLog').value;
   const dinnerLog = document.getElementById('dinnerLog').value;
   const preworkoutLog = document.getElementById('preworkoutLog').value;
+  const prev = loadToday();
   saveToday({ lunchLog, dinnerLog, preworkoutLog });
-  if (lunchLog) { document.getElementById('lunchTag').textContent = '✓ Logged'; document.getElementById('lunchTag').className = 'tag-sm tag-green'; }
-  if (dinnerLog) { document.getElementById('dinnerTag').textContent = '✓ Logged'; document.getElementById('dinnerTag').className = 'tag-sm tag-green'; }
+  const today = getActiveDateString();
+  // Sync each meal when it's newly entered or changed
+  if (lunchLog && lunchLog !== prev.lunchLog) {
+    document.getElementById('lunchTag').textContent = '✓ Logged';
+    document.getElementById('lunchTag').className = 'tag-sm tag-green';
+    sendToSheet('Nutrition', { Date: today, Meal: 'Lunch', Details: lunchLog, Restaurant: '', Notes: '' });
+  }
+  if (dinnerLog && dinnerLog !== prev.dinnerLog) {
+    document.getElementById('dinnerTag').textContent = '✓ Logged';
+    document.getElementById('dinnerTag').className = 'tag-sm tag-green';
+    sendToSheet('Nutrition', { Date: today, Meal: 'Dinner', Details: dinnerLog, Restaurant: '', Notes: '' });
+  }
+  if (preworkoutLog && preworkoutLog !== prev.preworkoutLog) {
+    sendToSheet('Nutrition', { Date: today, Meal: 'Pre/Post Workout', Details: preworkoutLog, Restaurant: '', Notes: '' });
+  }
 }
 
 function updateDoseByName(name, val) {
@@ -2438,19 +2441,8 @@ function submitHealthEvent(slot) {
 }
 
 function submitEveningLog() {
-  const data = loadToday();
-  const suppTaken = data.suppTaken || {};
-  const allItems = buildAllSuppMedList();
-  const suppCount = allItems.filter(s => suppTaken[s.name]).length;
-  const stretchCount = Object.values(data.stretchDone||{}).filter(Boolean).length;
+  // Meals now sync automatically via saveMealLog — this is kept as a stub
   saveToday({ eveningSubmitted: true });
-  // Sync nutrition entries
-  const today = getActiveDateString();
-  if (data.lunchLog) queueSync('Nutrition', { Date: today, Meal: 'Lunch', Details: data.lunchLog, Restaurant: '', Notes: '' });
-  if (data.dinnerLog) queueSync('Nutrition', { Date: today, Meal: 'Dinner', Details: data.dinnerLog, Restaurant: '', Notes: '' });
-  if (data.preworkoutLog) queueSync('Nutrition', { Date: today, Meal: 'Pre/Post Workout', Details: data.preworkoutLog, Restaurant: '', Notes: '' });
-  setSubmitState('eveningSubmitBtn', 'submitted', '✓ Submit Evening Log');
-  alert(`✅ Evening log saved!\n\nSupplements/Meds taken: ${suppCount}/${allItems.length}\nStretches completed: ${stretchCount}/${STRETCHES.length}\n\nSleep well — your body recovers and repairs overnight. 💪`);
 }
 
 // ═══════════════════════════════════════
