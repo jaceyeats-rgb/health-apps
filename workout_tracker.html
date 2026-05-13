@@ -644,7 +644,7 @@ const WORKOUTS = {
         { name:"Leg Extension Machine (Quads)", sets:3, reps:"15", rest:45, note:"Builds quad strength that supports knee joint stability.", tip:"Don't swing the weight. Pause briefly at top for maximum contraction." },
         { name:"Calf Raise Machine", sets:3, reps:"20", rest:30, note:"Calves respond best to higher reps. Full range — full stretch at bottom, full rise at top.", tip:"Pause at the top for 1 second each rep." },
         { name:"Cable Pull-Through (Glutes)", sets:3, reps:"12", rest:45, note:"Hip hinge movement — excellent for glutes and hamstrings without lower back strain.", tip:"Cable between legs, hinge at hips, squeeze glutes hard at the top. Keep back flat." },
-        { name:"Plank", sets:3, reps:"25–30 sec", rest:30, note:"Build to 60 seconds over 8 weeks. Quality over duration.", tip:"Straight line from head to heels. Don't let hips sag or pike up." },
+        { name:"Plank", sets:3, reps:"60 sec", rest:30, note:"Build to 60 seconds — if you can't hold the full 60, hold as long as form allows and build weekly. Quality over duration.", tip:"Straight line from head to heels. Don't let hips sag or pike up." },
         { name:"Side Plank", sets:2, reps:"20 sec each side", rest:20, note:"Critical for lateral core stability and hip health.", tip:"Stack feet or stagger them. Keep hips lifted throughout." }
       ],
       recovery: [
@@ -687,7 +687,7 @@ const WORKOUTS = {
         { name:"Peloton Ride", sets:1, reps:"20–25 min", rest:0, note:"Choose a 'Low Impact' or 'Beginner' class. Target cadence: 75–85 RPM. Target heart rate: 110–130 BPM (Zone 2 — conversational pace). You should be able to speak in full sentences.", tip:"Zone 2 cardio specifically and preferentially burns visceral fat. Do NOT go all-out. Moderate and sustained is the goal." },
         { name:"Glute Bridges", sets:3, reps:"15", rest:30, note:"Activates posterior chain and corrects anterior pelvic tilt caused by sitting all day.", tip:"Feet flat, squeeze glutes hard at the top, pause 1 second. Drive through heels." },
         { name:"Bird Dog", sets:3, reps:"10 each side", rest:30, note:"Core stability without spinal compression — safe for gut and lower back.", tip:"Extend opposite arm and leg simultaneously. Keep hips square to the floor." },
-        { name:"Plank", sets:3, reps:"20–30 sec", rest:30, note:"Build duration weekly.", tip:"Quality over time. Stop if form breaks." }
+        { name:"Plank", sets:3, reps:"60 sec", rest:30, note:"Build to 60 seconds. Stop if form breaks.", tip:"Quality over time. Stop if form breaks." }
       ],
       recovery: [
         { title:"Post-Dinner Walk", detail:"15-minute walk after dinner. Non-negotiable on this plan. Reduces post-meal blood sugar by up to 30% and directly targets visceral fat. A slow stroll is fine.", icon:"🚶" }
@@ -989,6 +989,18 @@ function renderTabs() {
   document.getElementById('weekBadge').textContent = `WEEK ${currentWeek}`;
 }
 
+// Returns seconds for a timer if reps string is time-based, else null
+function getRepsTimerSec(repsStr) {
+  if (!repsStr) return null;
+  const s = repsStr.toLowerCase();
+  // Match patterns like "30 sec", "20 sec each side", "25–30 sec", "30 sec on / 30 sec rest"
+  if (!s.includes('sec')) return null;
+  // Extract the first number
+  const match = s.match(/(\d+)/);
+  if (!match) return null;
+  return parseInt(match[1]);
+}
+
 function renderAll() {
   updateWDateUI();
   renderTabs();
@@ -1061,15 +1073,21 @@ function renderAll() {
 
   // Warm-up
   if (workout.warmup) {
+    const wuDone = completedExercises['warmup'];
     html += `<div class="section-label">Warm-Up</div>
-    <div class="exercise-card ${completedExercises['warmup']?'completed':''}">
+    <div class="exercise-card ${wuDone?'completed':''}">
       <div class="ex-header" onclick="toggleExercise('warmup_body')">
-        <div class="ex-check" onclick="event.stopPropagation();toggleComplete('warmup')">${completedExercises['warmup']?'✓':''}</div>
-        <div class="ex-info"><div class="ex-name">Dynamic Warm-Up</div><div class="ex-sets">8 min · Before all exercises</div></div>
+        <div class="ex-info" style="margin-left:0">
+          <div class="ex-name">${wuDone ? '✓ ' : ''}Dynamic Warm-Up</div>
+          <div class="ex-sets">8 min · Before all exercises</div>
+        </div>
         <div class="ex-expand" id="warmup_body_arrow">▾</div>
       </div>
       <div class="ex-body" id="warmup_body">
         <div class="ex-tip">${workout.warmup}</div>
+        <button onclick="toggleComplete('warmup')" style="width:100%;margin-top:10px;padding:10px;background:${wuDone?'#3dd68c':'var(--surface2)'};color:${wuDone?'#000':'var(--text2)'};border:1px solid ${wuDone?'#3dd68c':'var(--border)'};border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer">
+          ${wuDone ? '✓ WARM-UP COMPLETE' : 'MARK WARM-UP COMPLETE'}
+        </button>
       </div>
     </div>`;
   }
@@ -1102,11 +1120,13 @@ function renderAll() {
         }
         setRows += '</div>';
       }
+      // Determine if reps are time-based → add a set timer
+      const repsTimerSec = getRepsTimerSec(ex.reps);
+
       html += `<div class="exercise-card ${done?'completed':''}" id="card_${key}">
         <div class="ex-header" onclick="toggleExercise('body_${key}')">
-          <div class="ex-check" onclick="event.stopPropagation();toggleComplete('${key}')">${done?'✓':''}</div>
-          <div class="ex-info">
-            <div class="ex-name">${ex.name}</div>
+          <div class="ex-info" style="margin-left:0">
+            <div class="ex-name">${done ? '✓ ' : ''}${ex.name}</div>
             <div class="ex-sets">${ex.sets} ${ex.sets===1?'set':'sets'} × ${ex.reps}${ex.rest?' · Rest: '+ex.rest+'s':''}</div>
           </div>
           <div class="ex-expand" id="body_${key}_arrow">▾</div>
@@ -1115,7 +1135,11 @@ function renderAll() {
           ${ex.note?`<div class="ex-note">📌 ${ex.note}</div>`:''}
           ${ex.tip?`<div class="ex-tip">💡 <strong>Form tip:</strong> ${ex.tip}</div>`:''}
           ${setRows}
+          ${repsTimerSec ? `<button class="rest-timer-btn" onclick="startTimer(${repsTimerSec})" style="background:rgba(100,180,255,0.12);border-color:rgba(100,180,255,0.3);color:#7ec8ff"><span class="timer-icon">⏱</span> Start ${ex.reps} Set Timer</button>` : ''}
           ${ex.rest?`<button class="rest-timer-btn" onclick="startTimer(${ex.rest})"><span class="timer-icon">⏱</span> Start ${ex.rest}s Rest Timer</button>`:''}
+          <button onclick="toggleComplete('${key}')" style="width:100%;margin-top:10px;padding:10px;background:${done?'#3dd68c':'var(--surface2)'};color:${done?'#000':'var(--text2)'};border:1px solid ${done?'#3dd68c':'var(--border)'};border-radius:8px;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer">
+            ${done ? '✓ EXERCISE COMPLETE' : 'MARK EXERCISE COMPLETE'}
+          </button>
         </div>
       </div>`;
     });
