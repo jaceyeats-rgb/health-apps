@@ -48,7 +48,40 @@ html, body { height:100%; background:var(--bg); color:var(--text); font-family:'
   background:rgba(255,255,255,0.08);
   padding:5px 10px;
   border-radius:20px;
+  cursor:pointer;
+  user-select:none;
+  transition:background 0.15s;
 }
+.date-badge:active { background:rgba(255,255,255,0.18); }
+.date-badge.override-active {
+  background:var(--gold);
+  color:white;
+  font-weight:600;
+}
+
+#backDateBanner {
+  background:var(--gold);
+  color:white;
+  padding:8px 14px;
+  font-size:12px;
+  font-family:'DM Mono',monospace;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+#backDateBanner .reset-btn {
+  background:rgba(255,255,255,0.25);
+  border:1px solid rgba(255,255,255,0.4);
+  color:white;
+  padding:4px 10px;
+  border-radius:6px;
+  font-size:11px;
+  cursor:pointer;
+  font-weight:600;
+  flex-shrink:0;
+}
+#datePickerModal[style*="display:flex"], #datePickerModal[style*="display: flex"] { display:flex !important; }
 
 /* TABS */
 .tab-bar { display:flex; gap:0; }
@@ -470,14 +503,28 @@ textarea.notes-big::placeholder { color:var(--text3); }
 <div class="top-bar">
   <div class="top-bar-inner">
     <div class="app-title">Health Hub 🌿</div>
-    <div class="date-badge" id="dateBadge"></div>
+    <div class="date-badge" id="dateBadge" onclick="openDatePicker()" title="Tap to log for a different date"></div>
   </div>
   <div class="tab-bar">
     <button class="tab-btn active" onclick="showTab('dashboard')">🌅 Morning</button>
     <button class="tab-btn" onclick="showTab('evening')">🌙 Evening</button>
+    <button class="tab-btn" onclick="showTab('pills')">💊 Pills</button>
     <button class="tab-btn" onclick="showTab('nutrition')">🍽 Food</button>
-    <button class="tab-btn" onclick="showTab('biometrics')">📊 Stats</button>
     <button class="tab-btn" onclick="showTab('settings')">⚙️ Sync</button>
+  </div>
+  <div id="backDateBanner" style="display:none"></div>
+</div>
+
+<!-- Date picker modal -->
+<div id="datePickerModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--surface);border-radius:14px;padding:24px;max-width:340px;width:100%">
+    <h3 style="font-family:'Playfair Display',serif;color:var(--forest);font-size:20px;margin-bottom:6px">Log for which date?</h3>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px">Select a date below. All entries in this app will use this date until you reset to today.</p>
+    <input type="date" id="datePickerInput" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:14px;box-sizing:border-box">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeDatePicker()" style="flex:1;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Cancel</button>
+      <button onclick="applyDateOverride()" style="flex:1;background:var(--forest);border:none;color:white;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600">Apply</button>
+    </div>
   </div>
 </div>
 
@@ -496,15 +543,23 @@ textarea.notes-big::placeholder { color:var(--text3); }
   <div class="section-head">Morning Checklist</div>
   <div class="card" id="morningChecklist"></div>
 
+  <div class="section-head">💊 Take This Morning</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Check off each item as you take it. The dose listed is the recommended amount.</p>
+  <div id="morningPillsList"></div>
+
+  <div class="section-head">📋 Daytime Reminders</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Items to take during the day — log them on the Pills tab when actually taken.</p>
+  <div id="daytimeRemindersList"></div>
+
   <div class="section-head">Yesterday's Data</div>
-  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Report the previous day/night's metrics from your Apple Watch. Tap save on each one — all data syncs to your Stats sheet automatically.</p>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Report the previous day/night's metrics from your Apple Watch. Tap save on each one — all data syncs automatically.</p>
 
   <div class="metric-input-card">
     <div class="metric-label">⚖️ Weight</div>
     <div class="metric-input-row">
       <input class="metric-input" type="number" step="0.1" id="ydWeight" placeholder="lbs">
       <div class="metric-unit">lbs</div>
-      <button class="save-metric-btn" onclick="saveYesterdayMetric('weight','Weight','lbs')">Save</button>
+      <button class="save-metric-btn" id="ydWeightBtn" onclick="saveYesterdayMetric('weight','Weight','lbs')">Save</button>
     </div>
   </div>
 
@@ -513,7 +568,7 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="metric-input-row">
       <input class="metric-input" type="number" id="ydSteps" placeholder="steps">
       <div class="metric-unit">steps</div>
-      <button class="save-metric-btn" onclick="saveYesterdayMetric('steps','Steps','steps')">Save</button>
+      <button class="save-metric-btn" id="ydStepsBtn" onclick="saveYesterdayMetric('steps','Steps','steps')">Save</button>
     </div>
   </div>
 
@@ -522,7 +577,7 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="metric-input-row">
       <input class="metric-input" type="number" id="ydRHR" placeholder="BPM">
       <div class="metric-unit">BPM</div>
-      <button class="save-metric-btn" onclick="saveYesterdayMetric('rhr','RestingHR','BPM')">Save</button>
+      <button class="save-metric-btn" id="ydRhrBtn" onclick="saveYesterdayMetric('rhr','RestingHR','BPM')">Save</button>
     </div>
   </div>
 
@@ -531,14 +586,19 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="metric-input-row">
       <input class="metric-input" type="number" step="0.1" id="ydHRV" placeholder="ms">
       <div class="metric-unit">ms</div>
-      <button class="save-metric-btn" onclick="saveYesterdayMetric('hrv','HRV','ms')">Save</button>
+      <button class="save-metric-btn" id="ydHrvBtn" onclick="saveYesterdayMetric('hrv','HRV','ms')">Save</button>
     </div>
   </div>
 
   <div class="section-head">Sleep — Last Night (H/T/L Classification)</div>
-  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">From your Apple Watch Sleep section: classify each metric versus your personal baseline.</p>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">From your Apple Watch Sleep section: classify each metric versus your personal baseline. Tap "Save Sleep Data" at the bottom when complete.</p>
 
   <div id="sleepClassification"></div>
+
+  <button class="submit-btn green" onclick="saveSleepData()" id="saveSleepBtn" style="margin-top:8px">💾 Save Sleep Data</button>
+  <div id="sleepSaveStatus" style="text-align:center;font-size:12px;color:var(--text2);margin-top:8px;min-height:16px"></div>
+
+  <div id="saunaRecommendation"></div>
 
   <div class="section-head">Today's Nutrition Targets</div>
   <div class="card card-amber">
@@ -590,32 +650,6 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <div class="meal-log-body">
       <textarea class="meal-textarea" id="preworkoutLog" placeholder="Pre-workout: (e.g., banana + peanut butter) &#10;Post-workout: (e.g., protein shake with oat milk + banana)" style="min-height:80px" onchange="saveMealLog()"></textarea>
     </div>
-  </div>
-
-  <div class="section-head">Supplements & Medications</div>
-  <div class="card" id="suppLog"></div>
-
-  <div class="card" style="margin-top:8px">
-    <h3 style="font-size:14px;margin-bottom:8px">➕ Add a Medication</h3>
-    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Add prescription medications or additional supplements not in the default list above.</p>
-    <input type="text" id="newMedName" placeholder="Medication name (e.g., Lisinopril)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:6px;box-sizing:border-box">
-    <input type="text" id="newMedIngredient" placeholder="Key ingredient (e.g., Lisinopril)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:6px;box-sizing:border-box">
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <input type="number" id="newMedDose" placeholder="Dose" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;box-sizing:border-box">
-      <select id="newMedUnit" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px">
-        <option value="mg">mg</option>
-        <option value="mcg">mcg</option>
-        <option value="IU">IU</option>
-        <option value="capsule">capsule</option>
-        <option value="tablet">tablet</option>
-        <option value="tsp">tsp</option>
-        <option value="tbsp">tbsp</option>
-        <option value="ml">ml</option>
-        <option value="drop">drop</option>
-      </select>
-    </div>
-    <input type="text" id="newMedTime" placeholder="When to take (e.g., Morning, Bedtime)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box">
-    <button class="save-metric-btn" onclick="addMedication()" style="width:100%">Add Medication</button>
   </div>
 
   <div class="section-head">Restaurant Ordering Guide</div>
@@ -751,98 +785,81 @@ textarea.notes-big::placeholder { color:var(--text3); }
 
 </div>
 
-<!-- ═══════════════ BIOMETRICS TAB ═══════════════ -->
-<div class="tab-content" id="tab-biometrics">
+<!-- ═══════════════ PILLS TAB ═══════════════ -->
+<div class="tab-content" id="tab-pills">
 
-  <div class="section-head">Today's Measurements</div>
-
-  <div class="metric-input-card">
-    <div class="metric-label">⚖️ Weight</div>
-    <div class="metric-sublabel">Weigh Sunday mornings only, same time, before eating. Enter last reading any day.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" step="0.1" id="weightInput" placeholder="200.0">
-      <div class="metric-unit">lbs</div>
-      <button class="save-metric-btn" onclick="saveMetric('weight')">Save</button>
-    </div>
-    <div class="goal-progress" id="weightProgress"></div>
-  </div>
-
-  <div class="metric-input-card">
-    <div class="metric-label">👟 Daily Steps</div>
-    <div class="metric-sublabel">Enter from Apple Watch or iPhone Health app at end of day.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" id="stepsInput" placeholder="0">
-      <div class="metric-unit">steps</div>
-      <button class="save-metric-btn" onclick="saveMetric('steps')">Save</button>
-    </div>
-    <div class="goal-progress" id="stepsProgress"></div>
-  </div>
-
-  <div class="metric-input-card">
-    <div class="metric-label">❤️ Resting Heart Rate</div>
-    <div class="metric-sublabel">From Apple Watch — best read in the morning before getting up. Enter BPM.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" id="hrInput" placeholder="72">
-      <div class="metric-unit">BPM</div>
-      <button class="save-metric-btn" onclick="saveMetric('hr')">Save</button>
-    </div>
-  </div>
-
-  <div class="metric-input-card">
-    <div class="metric-label">💤 Sleep Last Night</div>
-    <div class="metric-sublabel">Total hours slept. Check Apple Watch Sleep section in Health app.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" step="0.25" id="sleepInput" placeholder="7.5">
-      <div class="metric-unit">hrs</div>
-      <button class="save-metric-btn" onclick="saveMetric('sleep')">Save</button>
-    </div>
-  </div>
-
-  <div class="metric-input-card">
-    <div class="metric-label">📈 HRV (Heart Rate Variability)</div>
-    <div class="metric-sublabel">From Apple Watch Health app → Heart → Heart Rate Variability. Higher = better recovery.</div>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" step="0.1" id="hrvInput" placeholder="45">
-      <div class="metric-unit">ms</div>
-      <button class="save-metric-btn" onclick="saveMetric('hrv')">Save</button>
-    </div>
-  </div>
-
-  <div class="section-head">Progress Tracking</div>
-
-  <div class="card">
-    <h3>📊 Weight Progress</h3>
-    <div id="weightChart" style="margin-top:8px"></div>
-  </div>
-
-  <div class="card">
-    <h3>👟 Step Count Progress</h3>
-    <div id="stepsChart" style="margin-top:8px"></div>
-  </div>
-
-  <div class="watch-import">
-    <h4>⌚ Apple Watch — What to Check Each Morning</h4>
-    <p>
-      <strong>Health app → Summary:</strong> Steps yesterday · Active calories · Exercise minutes<br>
-      <strong>Health app → Heart:</strong> Resting Heart Rate · HRV<br>
-      <strong>Health app → Sleep:</strong> Total sleep · Deep sleep %<br><br>
-      Target deep sleep: 20%+ of total sleep. If consistently below 15%, the magnesium + screen sunset changes will help.
-    </p>
-  </div>
-
-  <div class="section-head">Goal Targets</div>
   <div class="card card-forest">
-    <h3>90-Day Goals</h3>
-    <p>
-      ⚖️ Weight: <strong>200 lbs → 183–188 lbs</strong><br>
-      👟 Steps: <strong>5,000 → 9,000–10,000/day</strong><br>
-      ❤️ Resting HR: <strong>Drop 5–8 BPM from baseline</strong><br>
-      🧪 HDL (next labs): <strong>43 → 50+ mg/dL</strong><br>
-      🩺 LDL (next labs): <strong>120 → &lt;100 mg/dL</strong>
-    </p>
+    <h3>💊 Supplements & Medications</h3>
+    <p>Tap the checkbox when you take each item. Items tagged for morning appear on the Morning tab; bedtime/evening items appear on the Evening tab. Daytime items (lunch, mid-day, etc.) are logged here.</p>
   </div>
+
+  <div class="section-head">Active Items</div>
+  <div id="pillsList"></div>
+
+  <div class="section-head">➕ Add New Item</div>
+  <div class="card">
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="htl-btn htl-typical-active" id="addTypeSuppBtn" onclick="setNewItemType('Supplement')" style="flex:1">Supplement</button>
+      <button class="htl-btn" id="addTypeMedBtn" onclick="setNewItemType('Medication')" style="flex:1">Medication</button>
+    </div>
+    <input type="text" id="newItemName" placeholder="Name (e.g., Vitamin C / Lisinopril)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box">
+
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px;padding:0 4px">Key Ingredients (per single dose)</div>
+    <div id="newItemIngredientsContainer"></div>
+    <button onclick="addIngredientRow()" style="width:100%;background:transparent;border:1px dashed var(--border);color:var(--sage);padding:8px;border-radius:8px;font-size:12px;cursor:pointer;margin-bottom:8px;font-weight:600">+ Add Another Ingredient</button>
+
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px;padding:0 4px">Standard Dose</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="number" id="newItemDose" placeholder="Amount per dose" step="any" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;box-sizing:border-box">
+      <select id="newItemUnit" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px">
+        <option value="capsule">capsule</option>
+        <option value="tablet">tablet</option>
+        <option value="softgel">softgel</option>
+        <option value="pill">pill</option>
+        <option value="tsp">tsp</option>
+        <option value="tbsp">tbsp</option>
+        <option value="ml">ml</option>
+        <option value="drop">drop</option>
+        <option value="scoop">scoop</option>
+        <option value="serving">serving</option>
+      </select>
+    </div>
+
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px;padding:0 4px">When to Take</div>
+    <select id="newItemTiming" onchange="onTimingChange()" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px">
+      <option value="Morning (with first meal)">Morning (with first meal)</option>
+      <option value="Morning (empty stomach)">Morning (empty stomach)</option>
+      <option value="Mid-morning">Mid-morning</option>
+      <option value="With lunch">With lunch</option>
+      <option value="Mid-afternoon">Mid-afternoon</option>
+      <option value="With dinner">With dinner</option>
+      <option value="Evening">Evening</option>
+      <option value="Bedtime">Bedtime</option>
+      <option value="Every 4 hours">Every 4 hours</option>
+      <option value="Every 6 hours">Every 6 hours</option>
+      <option value="Every 8 hours">Every 8 hours</option>
+      <option value="Every 12 hours">Every 12 hours</option>
+      <option value="As needed">As needed</option>
+      <option value="Custom">Custom — type below</option>
+    </select>
+    <input type="text" id="newItemCustomTime" placeholder="Custom timing (only if 'Custom' selected above)" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box;display:none">
+
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin:10px 0 6px;padding:0 4px">Notes (Optional)</div>
+    <textarea id="newItemNotes" placeholder="e.g., Take with food, instructions, etc." style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;font-size:13px;margin-bottom:8px;box-sizing:border-box;min-height:50px;font-family:'DM Sans',sans-serif;resize:vertical"></textarea>
+
+    <button class="save-metric-btn" onclick="addNewItem()" style="width:100%">Add to My List</button>
+  </div>
+
+  <div class="section-head">Deactivated Items</div>
+  <div id="deactivatedList"></div>
 
 </div>
+
+<!-- ═══════════════ BIOMETRICS TAB (HIDDEN - NOT IN NAV BUT KEPT FOR LEGACY) ═══════════════ -->
+<div class="tab-content" id="tab-biometrics" style="display:none">
+  <!-- Hidden tab kept for backwards compatibility with showTab routing -->
+</div>
+
 
 <!-- ═══════════════ EVENING TAB ═══════════════ -->
 <div class="tab-content" id="tab-evening">
@@ -852,29 +869,40 @@ textarea.notes-big::placeholder { color:var(--text3); }
     <p>Complete in this order: Finish dinner by 6:30–7pm · Kitchen closes 7:30pm · Stretching 30–60 min before bed · No screens 60 min before bed · Magnesium Glycinate before bed</p>
   </div>
 
-  <div class="section-head">Nightly Stretching Routine — All 7 Days</div>
+  <div class="section-head">💊 Take This Evening</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Check off each item as you take it tonight.</p>
+  <div id="eveningPillsList"></div>
 
+  <div class="section-head">Nightly Stretching Routine</div>
   <div id="stretchList"></div>
 
-  <div class="section-head">End of Day Log</div>
+  <div class="section-head">End of Day Verification</div>
+  <div class="card" id="endOfDayCheck">
+    <p style="font-size:13px;color:var(--text2)">Confirming what you've logged today...</p>
+  </div>
+
+  <div class="section-head">Today's Health Events</div>
+  <p style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:0 4px">Note anything noteworthy from today — symptoms, observations, events. Each box submits independently to your Health Events sheet.</p>
 
   <div class="card">
-    <h3>💊 Did you take all supplements today?</h3>
-    <div id="eveningSuppCheck" style="margin-top:10px"></div>
+    <h3 style="font-size:14px;margin-bottom:8px">📝 Event 1</h3>
+    <textarea id="healthEvent1" placeholder="e.g., Felt slight bloating after lunch around 1pm" style="width:100%;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;box-sizing:border-box"></textarea>
+    <button class="save-metric-btn" id="healthEvent1Btn" onclick="submitHealthEvent(1)" style="width:100%;margin-top:8px">Submit Event 1</button>
   </div>
 
   <div class="card">
-    <h3>📱 Screen Time Check-In</h3>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:10px">Check iPhone Settings → Screen Time for today's total. Log it below.</p>
-    <div class="metric-input-row">
-      <input class="metric-input" type="number" step="0.5" id="screenTimeInput" placeholder="3.5" style="font-size:16px">
-      <div class="metric-unit">hrs personal</div>
-      <button class="save-metric-btn" onclick="saveScreenTime()">Log</button>
-    </div>
-    <div id="screenTimeFeedback" style="margin-top:8px;font-size:13px;color:var(--text2)"></div>
+    <h3 style="font-size:14px;margin-bottom:8px">📝 Event 2</h3>
+    <textarea id="healthEvent2" placeholder="e.g., Headache around 3pm, gone after water + walk" style="width:100%;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;box-sizing:border-box"></textarea>
+    <button class="save-metric-btn" id="healthEvent2Btn" onclick="submitHealthEvent(2)" style="width:100%;margin-top:8px">Submit Event 2</button>
   </div>
 
-  <button class="submit-btn green" onclick="submitEveningLog()">✓ Submit Evening Log</button>
+  <div class="card">
+    <h3 style="font-size:14px;margin-bottom:8px">📝 Event 3</h3>
+    <textarea id="healthEvent3" placeholder="e.g., Great energy after workout, slept earlier than usual" style="width:100%;min-height:70px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;box-sizing:border-box"></textarea>
+    <button class="save-metric-btn" id="healthEvent3Btn" onclick="submitHealthEvent(3)" style="width:100%;margin-top:8px">Submit Event 3</button>
+  </div>
+
+  <button class="submit-btn green" onclick="submitEveningLog()" id="eveningSubmitBtn">✓ Submit Evening Log</button>
 
 </div>
 
@@ -945,14 +973,186 @@ textarea.notes-big::placeholder { color:var(--text3); }
 // ═══════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════
+// Ingredient structure: array of {name, amount, unit}
+// asNeeded flag indicates whether item is daily or situational
 const SUPPLEMENTS = [
-  { name:"GoBiotix Probiotic Multivitamin", keyIngredient:"Probiotic Blend + Multivitamin", defaultDose:1, doseUnit:"capsule", detail:"With first meal", time:"Morning" },
-  { name:"Vitamin D3 + K2", keyIngredient:"D3 + K2 (MK-7)", defaultDose:2000, doseUnit:"IU", detail:"With first meal (fat-soluble)", time:"Morning" },
-  { name:"Elderberry + C + Zinc + Quercetin", keyIngredient:"Elderberry + Vit C + Zinc + Quercetin", defaultDose:1, doseUnit:"capsule", detail:"Oct–Mar or when feeling run-down", time:"Morning · Seasonal" },
-  { name:"Omega-3 Fish Oil", keyIngredient:"EPA + DHA", defaultDose:2000, doseUnit:"mg", detail:"With lunch or dinner", time:"Lunch/Dinner" },
-  { name:"Metamucil Psyllium Fiber", keyIngredient:"Psyllium Husk", defaultDose:1, doseUnit:"tsp", detail:"With large glass of water", time:"Morning or Evening" },
-  { name:"Magnesium Glycinate", keyIngredient:"Magnesium Glycinate", defaultDose:350, doseUnit:"mg", detail:"Before bed — supports sleep & gut", time:"Bedtime" }
+  {
+    name: "Metamucil Psyllium Fiber (AM)",
+    ingredients: [
+      { name:"Psyllium Husk Soluble Fiber", amount:0.36, unit:"g per capsule" }
+    ],
+    defaultDose: 5, doseUnit: "capsule",
+    detail: "Morning dose — with 8oz water, 60 min BEFORE anything else (food, supplements, meds)",
+    time: "Morning (empty stomach)",
+    asNeeded: false,
+    notes: "Wait 60 min before taking other supplements/meds. Stop entirely during diverticulitis flare-up."
+  },
+  {
+    name: "GoBiotix Complete Probiotic Multivitamin",
+    ingredients: [
+      { name:"Probiotic Blend", amount:25, unit:"billion CFU" },
+      { name:"Multivitamin (B-Complex)", amount:1, unit:"serving" }
+    ],
+    defaultDose: 3, doseUnit: "capsule",
+    detail: "With breakfast",
+    time: "Morning (with first meal)",
+    asNeeded: false,
+    notes: "Take with food. Wait 30–60 min after Metamucil."
+  },
+  {
+    name: "Vitamin D3 + K2",
+    ingredients: [
+      { name:"Vitamin D3", amount:5000, unit:"IU" },
+      { name:"Vitamin K2 (MK-7)", amount:200, unit:"mcg" }
+    ],
+    defaultDose: 1, doseUnit: "capsule",
+    detail: "With first meal (fat-soluble)",
+    time: "Morning (with first meal)",
+    asNeeded: false,
+    notes: "Take with food containing fat. Wait 30–60 min after Metamucil."
+  },
+  {
+    name: "Omega-3 Fish Oil",
+    ingredients: [
+      { name:"EPA", amount:1300, unit:"mg" },
+      { name:"DHA", amount:860, unit:"mg" }
+    ],
+    defaultDose: 3, doseUnit: "softgel",
+    detail: "With lunch or dinner",
+    time: "With lunch",
+    asNeeded: false,
+    notes: "Take with food containing fat. Best NOT taken with morning psyllium dose."
+  },
+  {
+    name: "Metamucil Psyllium Fiber (PM)",
+    ingredients: [
+      { name:"Psyllium Husk Soluble Fiber", amount:0.36, unit:"g per capsule" }
+    ],
+    defaultDose: 5, doseUnit: "capsule",
+    detail: "Evening dose — with 8oz water, with dinner",
+    time: "With dinner",
+    asNeeded: false,
+    notes: "Stop entirely during diverticulitis flare-up."
+  },
+  {
+    name: "Magnesium Glycinate",
+    ingredients: [
+      { name:"Magnesium (Glycinate)", amount:300, unit:"mg" }
+    ],
+    defaultDose: 2, doseUnit: "capsule",
+    detail: "Before bed — supports sleep & gut motility",
+    time: "Bedtime",
+    asNeeded: false,
+    notes: "Safe to take alone. Helps with sleep onset and overnight muscle recovery."
+  },
+  {
+    name: "Claritin (Loratadine)",
+    ingredients: [
+      { name:"Loratadine", amount:10, unit:"mg" }
+    ],
+    defaultDose: 1, doseUnit: "capsule",
+    detail: "AS-NEEDED: When allergy symptoms flare up. Once per day.",
+    time: "As needed",
+    asNeeded: true,
+    notes: "Take in the morning when symptomatic. Effect lasts ~24 hours."
+  },
+  {
+    name: "Elderberry Immune Complex",
+    ingredients: [
+      { name:"Vitamin D3", amount:5000, unit:"IU" },
+      { name:"Zinc", amount:20, unit:"mg" },
+      { name:"Vitamin C", amount:150, unit:"mg" },
+      { name:"Elderberry", amount:1000, unit:"mg" },
+      { name:"Quercetin", amount:50, unit:"mg" },
+      { name:"Ginger", amount:50, unit:"mg" }
+    ],
+    defaultDose: 2, doseUnit: "capsule",
+    detail: "AS-NEEDED: Take at first sign of cold/flu symptoms or after exposure to sick people. 2 caps up to 2x daily for 3–5 days.",
+    time: "As needed",
+    asNeeded: true,
+    notes: "Do NOT take daily — would exceed safe zinc and D3 limits when combined with your daily D3+K2."
+  },
+  {
+    name: "Source Naturals Wellness Formula",
+    ingredients: [
+      { name:"Vitamin C", amount:650, unit:"mg" },
+      { name:"Vitamin A", amount:750, unit:"mcg" },
+      { name:"Zinc", amount:11.5, unit:"mg" },
+      { name:"Bio-Aligned Botanicals", amount:1, unit:"blend" }
+    ],
+    defaultDose: 3, doseUnit: "capsule",
+    detail: "AS-NEEDED: At first sign of illness, during high-exposure periods, or 1–2 days after intense exertion. Up to 4x daily for 3–5 days max.",
+    time: "As needed",
+    asNeeded: true,
+    notes: "Not for daily continuous use. High zinc content can deplete copper if used long-term."
+  },
+  {
+    name: "MicroIngredients Oil of Oregano",
+    ingredients: [
+      { name:"Oil of Oregano", amount:6000, unit:"mg" },
+      { name:"Black Seed Oil", amount:200, unit:"mg" }
+    ],
+    defaultDose: 2, doseUnit: "softgel",
+    detail: "AS-NEEDED for diverticulitis flare-up: At the FIRST early warning (mild cramping, bloating). Take 2 softgels WITH food, 1–2 times per day for 2–3 days max.",
+    time: "As needed",
+    asNeeded: true,
+    notes: "STOP taking during active flare-up — seek medical care. Always take with food. Do NOT combine with daily probiotic (separate by 2–3 hrs). Not for routine daily use."
+  }
 ];
+
+// Timing tag categories - determines which tab/section each item appears in
+const TIMING_OPTIONS = [
+  "Morning (with first meal)",
+  "Morning (empty stomach)",
+  "Mid-morning",
+  "With lunch",
+  "Mid-afternoon",
+  "With dinner",
+  "Evening",
+  "Bedtime",
+  "Every 4 hours",
+  "Every 6 hours",
+  "Every 8 hours",
+  "Every 12 hours",
+  "As needed",
+  "Custom"
+];
+
+const MORNING_TIMINGS = ["Morning (with first meal)", "Morning (empty stomach)"];
+const EVENING_TIMINGS = ["Evening", "Bedtime"];
+// Everything else (mid-morning, with lunch, etc.) goes to Pills tab and shows as reminder on Morning
+// "As needed" items show in their own section on the Pills tab
+
+function getTimingCategory(timing) {
+  if (timing === 'As needed') return 'asneeded';
+  if (MORNING_TIMINGS.includes(timing)) return 'morning';
+  if (EVENING_TIMINGS.includes(timing)) return 'evening';
+  return 'daytime'; // shown on Pills tab + reminder on Morning
+}
+
+// Build a display string for ingredients
+function ingredientsDisplay(ingredients) {
+  if (!ingredients || !Array.isArray(ingredients)) return '';
+  return ingredients.map(i => `${i.name} (${i.amount} ${i.unit})`).join(' · ');
+}
+
+// User-managed deactivated items (by name, since they may include default supps)
+function getDeactivated() {
+  try { return JSON.parse(localStorage.getItem('deactivated_items')||'[]'); } catch(e) { return []; }
+}
+function setDeactivated(arr) {
+  localStorage.setItem('deactivated_items', JSON.stringify(arr));
+}
+function isDeactivated(name) {
+  return getDeactivated().includes(name);
+}
+function deactivateItem(name) {
+  const list = getDeactivated();
+  if (!list.includes(name)) { list.push(name); setDeactivated(list); }
+}
+function reactivateItem(name) {
+  setDeactivated(getDeactivated().filter(n => n !== name));
+}
 
 // User-managed medications list (stored in localStorage, editable in app)
 function getMedications() {
@@ -972,20 +1172,112 @@ const STRETCHES = [
 ];
 
 const DAY_PLANS = {
-  1: { day:"Monday", workout:"Upper Body Push (GYM — 55 min)", type:"GYM", badges:["Chest · Shoulders · Triceps","6:00–7:00 AM","RLT + Sauna after"] },
-  2: { day:"Tuesday", workout:"Peloton + Core (HOME — 40 min)", type:"HOME", badges:["Zone 2 Cardio","20–25 min ride","Post-dinner walk"] },
-  3: { day:"Wednesday", workout:"Lower Body & Core (GYM — 55 min)", type:"GYM", badges:["Legs · Glutes · Abs","6:00–7:00 AM","RLT + Sauna after"] },
-  4: { day:"Thursday", workout:"Active Recovery (HOME — 30 min)", type:"HOME", badges:["Weighted vest walk","Home infrared sauna","Easy day"] },
-  5: { day:"Friday", workout:"Upper Body Pull (GYM — 55 min)", type:"GYM", badges:["Back · Biceps · Rear Delts","6:00–7:00 AM","RLT + Sauna after"] },
-  6: { day:"Saturday", workout:"Peloton Ride OR Pickleball", type:"ACTIVE", badges:["Home workout or 🏓","Check your schedule","45–90 min"] },
-  0: { day:"Sunday", workout:"Rest & Recovery", type:"REST", badges:["Home infrared sauna","Weekly weigh-in","Gentle walk optional"] }
+  1: { day:"Monday", workout:"Upper Body Push (GYM — 55 min)", type:"GYM", badges:["Chest · Shoulders · Triceps","6:00–7:00 AM","🔥 Sauna day"], sauna:true },
+  2: { day:"Tuesday", workout:"Peloton + Core (HOME — 40 min)", type:"HOME", badges:["Zone 2 Cardio","20–25 min ride","Post-dinner walk"], sauna:false },
+  3: { day:"Wednesday", workout:"Lower Body & Core (GYM — 55 min)", type:"GYM", badges:["Legs · Glutes · Abs","6:00–7:00 AM","🔥 Sauna day"], sauna:true },
+  4: { day:"Thursday", workout:"Active Recovery (HOME — 30 min)", type:"HOME", badges:["Weighted vest walk","Easy day","🔥 Sauna day"], sauna:true },
+  5: { day:"Friday", workout:"Upper Body Pull (GYM — 55 min)", type:"GYM", badges:["Back · Biceps · Rear Delts","6:00–7:00 AM","🔥 Sauna day"], sauna:true },
+  6: { day:"Saturday", workout:"Peloton Ride OR Pickleball", type:"ACTIVE", badges:["Home workout or 🏓","Check your schedule","45–90 min"], sauna:false },
+  0: { day:"Sunday", workout:"Rest & Recovery", type:"REST", badges:["Weekly weigh-in","Gentle walk optional","Recovery focus"], sauna:false }
 };
+
+// ═══════════════════════════════════════
+// DATE OVERRIDE SYSTEM (back-date mode)
+// ═══════════════════════════════════════
+// In-memory only — resets on app reload, intentional safety
+let dateOverride = null; // null = use real today; otherwise Date object
+
+function getActiveDate() {
+  return dateOverride ? new Date(dateOverride) : new Date();
+}
+
+function getActiveDateString() {
+  return getActiveDate().toLocaleDateString('en-US');
+}
+
+function getYesterdayString() {
+  // Returns the day BEFORE the active date (for sleep + yesterday metrics)
+  const d = getActiveDate();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('en-US');
+}
+
+function isDateOverridden() {
+  return dateOverride !== null;
+}
+
+function openDatePicker() {
+  const modal = document.getElementById('datePickerModal');
+  const input = document.getElementById('datePickerInput');
+  // Pre-fill with current active date
+  const d = getActiveDate();
+  const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  input.value = iso;
+  // Set max to today (no future dates)
+  const t = new Date();
+  input.max = `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  modal.style.display = 'flex';
+}
+
+function closeDatePicker() {
+  document.getElementById('datePickerModal').style.display = 'none';
+}
+
+function applyDateOverride() {
+  const input = document.getElementById('datePickerInput');
+  if (!input.value) { closeDatePicker(); return; }
+  const [y, m, d] = input.value.split('-').map(Number);
+  const selected = new Date(y, m-1, d);
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  selected.setHours(0,0,0,0);
+  // If same as today, just clear override
+  if (selected.getTime() === today.getTime()) {
+    dateOverride = null;
+  } else {
+    dateOverride = selected;
+  }
+  closeDatePicker();
+  updateDateUI();
+  // Re-render all tabs to pick up new date
+  renderDashboard();
+  renderNutrition();
+  renderEvening();
+  renderPillsTab();
+}
+
+function resetDateToToday() {
+  dateOverride = null;
+  updateDateUI();
+  renderDashboard();
+  renderNutrition();
+  renderEvening();
+  renderPillsTab();
+}
+
+function updateDateUI() {
+  const badge = document.getElementById('dateBadge');
+  const banner = document.getElementById('backDateBanner');
+  const active = getActiveDate();
+  const dateStr = active.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  if (isDateOverridden()) {
+    badge.textContent = '🗓 ' + dateStr;
+    badge.classList.add('override-active');
+    banner.style.display = 'flex';
+    banner.innerHTML = `<span>⚠️ Back-dating mode: all entries log for <strong>${active.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</strong></span><button class="reset-btn" onclick="resetDateToToday()">Reset to Today</button>`;
+  } else {
+    badge.textContent = dateStr;
+    badge.classList.remove('override-active');
+    banner.style.display = 'none';
+  }
+}
 
 // ═══════════════════════════════════════
 // STATE & STORAGE
 // ═══════════════════════════════════════
 function todayKey() {
-  const d = new Date();
+  // Uses the active date (back-date mode aware)
+  const d = getActiveDate();
   return `hub_${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,'0')}_${String(d.getDate()).padStart(2,'0')}`;
 }
 function loadToday() {
@@ -1108,7 +1400,7 @@ async function testSync() {
   if (!url) { setSyncStatus('⚠️ Save a URL first.', 'red'); return; }
   setSyncStatus('Sending test entry...', 'amber');
   const result = await sendToSheet('Biometrics', {
-    Date: new Date().toLocaleDateString('en-US'),
+    Date: getActiveDateString(),
     Metric: 'TEST_CONNECTION',
     Value: 'Hello from Health Hub',
     Unit: 'test',
@@ -1128,29 +1420,49 @@ async function syncAllToday() {
   if (!url) { setSyncStatus('⚠️ Save a URL first.', 'red'); return; }
   setSyncStatus('Syncing today\'s data...', 'amber');
   const data = loadToday();
-  const today = new Date().toLocaleDateString('en-US');
+  const today = getActiveDateString();
   let count = 0;
 
-  // Sync Supplements & Medications
-  const allItems = buildAllSuppMedList();
+  // Sync Supplements & Medications - one row per ingredient
+  const allItems = buildAllSuppMedList().concat(buildDeactivatedList());
   const doseOverrides = data.doseOverrides || {};
   if (data.suppTaken) {
-    for (let idx = 0; idx < allItems.length; idx++) {
-      if (data.suppTaken[idx]) {
-        const item = allItems[idx];
-        const actualDose = doseOverrides[idx] !== undefined ? doseOverrides[idx] : item.defaultDose;
-        await sendToSheet('Supplements_Meds', {
-          Date: today,
-          Type: item.type,
-          Name: item.name,
-          KeyIngredient: item.keyIngredient || '',
-          DoseAmount: actualDose,
-          DoseUnit: item.doseUnit,
-          Taken: 'Yes',
-          TimeTaken: data.suppTaken[idx+'_time'] || '',
-          Notes: ''
-        });
-        count++;
+    for (const item of allItems) {
+      if (data.suppTaken[item.name]) {
+        const actualDose = doseOverrides[item.name] !== undefined ? parseFloat(doseOverrides[item.name]) : item.defaultDose;
+        const timeTaken = data.suppTaken[item.name+'__time'] || '';
+        if (item.ingredients && item.ingredients.length > 0) {
+          for (const ing of item.ingredients) {
+            const totalAmount = (parseFloat(ing.amount) || 0) * actualDose;
+            await sendToSheet('Supplements_Meds', {
+              Date: today,
+              Type: item.type,
+              Name: item.name,
+              Ingredient: ing.name,
+              IngredientAmount: totalAmount,
+              IngredientUnit: ing.unit,
+              DoseTaken: actualDose,
+              DoseUnit: item.doseUnit,
+              TimeTaken: timeTaken,
+              Notes: ''
+            });
+            count++;
+          }
+        } else {
+          await sendToSheet('Supplements_Meds', {
+            Date: today,
+            Type: item.type,
+            Name: item.name,
+            Ingredient: '',
+            IngredientAmount: '',
+            IngredientUnit: '',
+            DoseTaken: actualDose,
+            DoseUnit: item.doseUnit,
+            TimeTaken: timeTaken,
+            Notes: ''
+          });
+          count++;
+        }
       }
     }
   }
@@ -1172,17 +1484,22 @@ function showTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   event.currentTarget.classList.add('active');
+  // Re-render the entered tab to ensure fresh data
+  if (id === 'pills') renderPillsTab();
+  else if (id === 'dashboard') renderDashboard();
+  else if (id === 'evening') renderEvening();
+  else if (id === 'nutrition') renderNutrition();
 }
 
 // ═══════════════════════════════════════
 // DASHBOARD
 // ═══════════════════════════════════════
 function renderDashboard() {
-  const now = new Date();
+  const now = getActiveDate();
   const jsDay = now.getDay();
   const plan = DAY_PLANS[jsDay];
 
-  document.getElementById('dateBadge').textContent = now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  updateDateUI(); // refreshes header date + banner
   document.getElementById('heroDay').textContent = plan.day;
   document.getElementById('heroDate').textContent = now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   document.getElementById('heroWorkout').textContent = plan.workout;
@@ -1190,17 +1507,13 @@ function renderDashboard() {
   const badges = document.getElementById('heroBadges');
   badges.innerHTML = plan.badges.map(b => `<span class="hero-badge">${b}</span>`).join('');
 
-  // Quick stats
   const data = loadToday();
-  const weightHist = loadHistory('metric_weight');
-  const stepsHist = loadHistory('metric_steps');
 
-  // Morning checklist
+  // Morning checklist (general checklist, not pills)
   const checks = data.morningChecks || {};
   const items = [
     { key:'water', title:'Drink 12–16oz water immediately upon waking', detail:'Before coffee. Rehydrates after 7–8 hrs of sleep.', time:'Upon waking' },
-    { key:'preworkout', title:'Pre-workout snack (gym days)', detail:'Banana + PB or Greek yogurt, 20–30 min before gym.', time:'Before gym' },
-    { key:'supplements_am', title:'Morning supplements taken', detail:'GoBiotix Probiotic · D3+K2 · Elderberry (seasonal)', time:'With first meal' }
+    { key:'preworkout', title:'Pre-workout snack (gym days)', detail:'Banana + PB or Greek yogurt, 20–30 min before gym.', time:'Before gym' }
   ];
 
   document.getElementById('morningChecklist').innerHTML = items.map(item => `
@@ -1213,6 +1526,12 @@ function renderDashboard() {
       </div>
     </div>
   `).join('');
+
+  // Morning Pills (items with morning timing - checkboxable here)
+  renderPillSection('morningPillsList', 'morning', true);
+
+  // Daytime Reminders (items with daytime timing - display only, link to Pills tab)
+  renderPillSection('daytimeRemindersList', 'daytime', false);
 
   // Sleep classification (H/T/L) inputs
   const sleepClassifications = data.sleepClass || {};
@@ -1228,12 +1547,37 @@ function renderDashboard() {
       <div class="metric-label">${m.icon} ${m.label}</div>
       <div class="metric-sublabel">${m.desc}</div>
       <div style="display:flex;gap:6px;margin-top:8px">
-        <button class="htl-btn ${sleepClassifications[m.key]==='High'?'htl-high-active':''}" onclick="setSleepClass('${m.key}','${m.label}','High')">High</button>
-        <button class="htl-btn ${sleepClassifications[m.key]==='Typical'?'htl-typical-active':''}" onclick="setSleepClass('${m.key}','${m.label}','Typical')">Typical</button>
-        <button class="htl-btn ${sleepClassifications[m.key]==='Low'?'htl-low-active':''}" onclick="setSleepClass('${m.key}','${m.label}','Low')">Low</button>
+        <button class="htl-btn ${sleepClassifications[m.key]==='High'?'htl-high-active':''}" onclick="setSleepClassLocal('${m.key}','${m.label}','High')">High</button>
+        <button class="htl-btn ${sleepClassifications[m.key]==='Typical'?'htl-typical-active':''}" onclick="setSleepClassLocal('${m.key}','${m.label}','Typical')">Typical</button>
+        <button class="htl-btn ${sleepClassifications[m.key]==='Low'?'htl-low-active':''}" onclick="setSleepClassLocal('${m.key}','${m.label}','Low')">Low</button>
       </div>
     </div>
   `).join('');
+
+  // Sauna recommendation (only on sauna days)
+  const saunaEl = document.getElementById('saunaRecommendation');
+  if (saunaEl) {
+    if (plan.sauna) {
+      saunaEl.innerHTML = `
+        <div class="section-head">🔥 Sauna Day</div>
+        <div class="card card-forest">
+          <h3>Recommended Today</h3>
+          <p style="margin-bottom:8px">A sauna session is recommended today. Pick wherever's most convenient:</p>
+          <p style="background:rgba(255,255,255,0.08);padding:10px 12px;border-radius:8px;margin-bottom:6px">
+            <strong>🏋️ At the gym (dry sauna):</strong> 15–20 min at 175–195°F<br>
+            <em style="font-size:12px;opacity:0.85">Best on gym days right after your workout for recovery.</em>
+          </p>
+          <p style="background:rgba(255,255,255,0.08);padding:10px 12px;border-radius:8px">
+            <strong>🏠 At home (infrared):</strong> 30–40 min at max temp (135°F)<br>
+            <em style="font-size:12px;opacity:0.85">Color setting is your preference — no therapeutic difference between them.</em>
+          </p>
+          <p style="font-size:12px;opacity:0.85;margin-top:10px">💧 Hydrate: 16oz water before · 16–24oz water after. Skip if within 60 min of bedtime.</p>
+        </div>
+      `;
+    } else {
+      saunaEl.innerHTML = '';
+    }
+  }
 }
 
 function toggleMorningCheck(key) {
@@ -1245,13 +1589,12 @@ function toggleMorningCheck(key) {
 }
 
 function saveYesterdayMetric(field, metricName, unit) {
-  const inputId = 'yd' + field.charAt(0).toUpperCase() + field.slice(1);
   const idMap = { weight:'ydWeight', steps:'ydSteps', rhr:'ydRHR', hrv:'ydHRV' };
+  const btnMap = { weight:'ydWeightBtn', steps:'ydStepsBtn', rhr:'ydRhrBtn', hrv:'ydHrvBtn' };
   const val = parseFloat(document.getElementById(idMap[field]).value);
   if (isNaN(val)) return;
-  // Use yesterday's date for these entries
-  const y = new Date(); y.setDate(y.getDate()-1);
-  const yesterdayStr = y.toLocaleDateString('en-US');
+  // Use yesterday (relative to active date) for these entries
+  const yesterdayStr = getYesterdayString();
   saveHistory('metric_'+field, val);
   queueSync('Biometrics', {
     Date: yesterdayStr,
@@ -1261,24 +1604,62 @@ function saveYesterdayMetric(field, metricName, unit) {
     Notes: 'Logged morning after'
   });
   document.getElementById(idMap[field]).value = '';
+  // Visual confirmation - briefly green, then revert (since input clears)
+  const btn = document.getElementById(btnMap[field]);
+  if (btn) {
+    setSubmitState(btnMap[field], 'submitted', 'Save');
+    setTimeout(() => setSubmitState(btnMap[field], 'pending', 'Save'), 2000);
+  }
   showSaveBar();
 }
 
-function setSleepClass(key, label, classification) {
+function setSleepClassLocal(key, label, classification) {
   const data = loadToday();
   if (!data.sleepClass) data.sleepClass = {};
   data.sleepClass[key] = classification;
+  // Track that label for sync later
+  if (!data.sleepLabels) data.sleepLabels = {};
+  data.sleepLabels[key] = label;
   saveToday(data);
-  // Sync to Biometrics with yesterday's date
-  const y = new Date(); y.setDate(y.getDate()-1);
-  queueSync('Biometrics', {
-    Date: y.toLocaleDateString('en-US'),
-    Metric: 'Sleep_' + label.replace(/ /g,''),
-    Value: classification,
-    Unit: 'classification',
-    Notes: ''
-  });
   renderDashboard();
+  // Reset save status indicator since data changed
+  const statusEl = document.getElementById('sleepSaveStatus');
+  if (statusEl) statusEl.textContent = 'Unsaved changes — tap "Save Sleep Data" to sync';
+  if (statusEl) statusEl.style.color = 'var(--gold)';
+  // Reset the submit button to pending state
+  setSubmitState('saveSleepBtn', 'pending', '💾 Save Sleep Data');
+}
+
+function saveSleepData() {
+  const data = loadToday();
+  const sleepClass = data.sleepClass || {};
+  const sleepLabels = data.sleepLabels || {};
+  const keys = Object.keys(sleepClass);
+  if (keys.length === 0) {
+    const statusEl = document.getElementById('sleepSaveStatus');
+    statusEl.textContent = 'Nothing to save — classify at least one metric first';
+    statusEl.style.color = 'var(--rust)';
+    return;
+  }
+  // Sync each classification to Biometrics with yesterday's date (relative to active date)
+  const yesterday = getYesterdayString();
+  let count = 0;
+  keys.forEach(key => {
+    const label = sleepLabels[key] || key;
+    queueSync('Biometrics', {
+      Date: yesterday,
+      Metric: 'Sleep_' + label.replace(/ /g,''),
+      Value: sleepClass[key],
+      Unit: 'classification',
+      Notes: ''
+    });
+    count++;
+  });
+  const statusEl = document.getElementById('sleepSaveStatus');
+  statusEl.textContent = `✓ Saved ${count} sleep metrics for ${yesterday}`;
+  statusEl.style.color = 'var(--sage)';
+  setSubmitState('saveSleepBtn', 'submitted', '💾 Save Sleep Data');
+  showSaveBar();
 }
 
 // ═══════════════════════════════════════
@@ -1287,57 +1668,229 @@ function setSleepClass(key, label, classification) {
 function renderNutrition() {
   const data = loadToday();
 
-  // Meal logs
+  // Meal logs only (supplements moved to Pills tab)
   if (data.lunchLog) { document.getElementById('lunchLog').value = data.lunchLog; document.getElementById('lunchTag').textContent = '✓ Logged'; document.getElementById('lunchTag').className = 'tag-sm tag-green'; }
   if (data.dinnerLog) { document.getElementById('dinnerLog').value = data.dinnerLog; document.getElementById('dinnerTag').textContent = '✓ Logged'; document.getElementById('dinnerTag').className = 'tag-sm tag-green'; }
   if (data.preworkoutLog) { document.getElementById('preworkoutLog').value = data.preworkoutLog; }
-
-  // Get all items: supplements + user-added medications
-  const allItems = buildAllSuppMedList();
-  const taken = data.suppTaken || {};
-  const doseOverrides = data.doseOverrides || {};
-
-  document.getElementById('suppLog').innerHTML = `<div class="supp-checklist">${allItems.map((s, idx) => {
-    const tk = taken[idx];
-    const customDose = doseOverrides[idx];
-    const displayDose = customDose !== undefined ? customDose : s.defaultDose;
-    const typeBadge = s.type === 'Medication' ? '<span class="tag-sm tag-amber">MED</span>' : '<span class="tag-sm tag-green">SUPP</span>';
-    return `
-    <div class="supp-item">
-      <div class="supp-check ${tk?'done':''}" onclick="toggleSupp(${idx})">${tk?'✓':''}</div>
-      <div style="flex:1">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span class="supp-name">${s.name}</span>
-          ${typeBadge}
-        </div>
-        <div class="supp-detail">${s.keyIngredient ? '<em>'+s.keyIngredient+'</em> · ' : ''}${s.detail || ''}</div>
-        <div class="supp-time">${s.time || ''}</div>
-        <div style="display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap">
-          <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">DOSE:</span>
-          <input type="number" step="any" value="${displayDose}" onchange="updateDose(${idx},this.value)" style="width:70px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
-          <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${s.doseUnit}</span>
-          <input class="time-taken-input" type="time" value="${taken[idx+'_time']||''}" onchange="saveSuppTime(${idx},this.value)" title="Time taken" style="margin:0">
-          ${s.type === 'Medication' ? `<button onclick="removeMedication(${idx})" style="margin-left:auto;background:transparent;border:1px solid var(--border);color:var(--rust);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer">Remove</button>` : ''}
-        </div>
-      </div>
-    </div>
-  `;}).join('')}</div>`;
 }
 
-// Build the combined list of supplements + user medications
+// ═══════════════════════════════════════
+// PILL/SUPPLEMENT RENDERING SYSTEM
+// ═══════════════════════════════════════
+
+// Build the combined active list of supplements + user medications/supplements (excluding deactivated)
 function buildAllSuppMedList() {
-  const list = SUPPLEMENTS.map(s => ({...s, type:'Supplement'}));
+  const list = SUPPLEMENTS.map(s => ({...s, type:'Supplement', isDefault:true}));
   const meds = getMedications();
   meds.forEach(m => list.push({
     name: m.name,
-    keyIngredient: m.keyIngredient || '',
+    ingredients: m.ingredients || [],
     defaultDose: m.defaultDose,
     doseUnit: m.doseUnit,
     detail: m.detail || '',
-    time: m.time || '',
-    type: 'Medication'
+    time: m.time || 'As needed',
+    type: m.type || 'Medication',
+    asNeeded: m.asNeeded || (m.time === 'As needed'),
+    notes: m.notes || '',
+    isDefault: false
   }));
-  return list;
+  return list.filter(item => !isDeactivated(item.name));
+}
+
+function buildDeactivatedList() {
+  const allPossible = SUPPLEMENTS.map(s => ({...s, type:'Supplement', isDefault:true}));
+  const meds = getMedications();
+  meds.forEach(m => allPossible.push({
+    name: m.name,
+    ingredients: m.ingredients || [],
+    defaultDose: m.defaultDose,
+    doseUnit: m.doseUnit,
+    detail: m.detail || '',
+    time: m.time || 'As needed',
+    type: m.type || 'Medication',
+    asNeeded: m.asNeeded || (m.time === 'As needed'),
+    notes: m.notes || '',
+    isDefault: false
+  }));
+  return allPossible.filter(item => isDeactivated(item.name));
+}
+
+// Render a single pill card (used in morning, evening, pills tab)
+function renderPillCard(item, idx, mode) {
+  // mode: 'checkable' (has checkbox + time field) or 'reminder' (display only)
+  const data = loadToday();
+  const taken = data.suppTaken || {};
+  const tk = taken[item.name];
+  const typeBadge = item.type === 'Medication'
+    ? '<span class="tag-sm tag-amber">MED</span>'
+    : '<span class="tag-sm tag-green">SUPP</span>';
+  const asNeededBadge = item.asNeeded ? '<span class="tag-sm" style="background:#e8e0fc;border:1px solid #c9b8f0;color:#5a3a8a">AS NEEDED</span>' : '';
+  const doseText = `${item.defaultDose} ${item.doseUnit}${item.defaultDose>1?'s':''}`;
+  const ingredientsText = ingredientsDisplay(item.ingredients);
+
+  if (mode === 'reminder') {
+    return `
+      <div class="card" style="padding:14px 16px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600;color:var(--text)">${item.name}</div>
+            <div style="font-size:13px;color:var(--sage);font-weight:500;margin-top:2px">${item.time}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px"><em>${ingredientsText}</em></div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Recommended: ${doseText}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${typeBadge}${asNeededBadge}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // checkable mode
+  const doseOverride = (data.doseOverrides||{})[item.name];
+  const actualDose = doseOverride !== undefined ? doseOverride : item.defaultDose;
+  return `
+    <div class="card" style="padding:14px 16px;margin-bottom:8px;${tk ? 'border-left:4px solid var(--sage)' : ''}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600;color:var(--text)">${item.name}</div>
+          <div style="font-size:13px;color:var(--sage);font-weight:500;margin-top:2px">${item.time}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px"><em>${ingredientsText}</em></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Recommended: ${doseText}</div>
+          ${item.notes ? `<div style="font-size:11px;color:var(--gold);margin-top:6px;padding:6px 8px;background:var(--amber-bg);border-radius:6px;border-left:2px solid var(--gold)">💡 ${item.notes}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${typeBadge}${asNeededBadge}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')">${tk?'✓':''}</div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Dose Taken</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" step="any" value="${actualDose}" onchange="updateDoseByName('${escapeJs(item.name)}',this.value)" style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
+            <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${item.doseUnit}${actualDose != 1 ? 's' : ''}</span>
+            <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px">
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function escapeJs(str) { return String(str).replace(/'/g,"\\'").replace(/"/g,'\\"'); }
+
+// Render section by category (morning/evening/daytime/asneeded)
+function renderPillSection(containerId, category, checkable) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const allItems = buildAllSuppMedList();
+  const filtered = allItems.filter(item => getTimingCategory(item.time) === category);
+  if (filtered.length === 0) {
+    el.innerHTML = `<p style="font-size:13px;color:var(--text3);padding:14px;text-align:center;background:var(--surface);border:1px dashed var(--border);border-radius:12px">No items scheduled for this time.</p>`;
+    return;
+  }
+  el.innerHTML = filtered.map(item => renderPillCard(item, item.name, checkable ? 'checkable' : 'reminder')).join('');
+}
+
+// Render Pills tab - all active items grouped by category, plus deactivated section
+function renderPillsTab() {
+  const allItems = buildAllSuppMedList();
+  const pillsList = document.getElementById('pillsList');
+  if (!pillsList) return;
+
+  if (allItems.length === 0) {
+    pillsList.innerHTML = `<p style="font-size:13px;color:var(--text3);padding:20px;text-align:center">No active supplements or medications. Add one below.</p>`;
+  } else {
+    // Group items by category
+    const morning = allItems.filter(i => getTimingCategory(i.time) === 'morning');
+    const daytime = allItems.filter(i => getTimingCategory(i.time) === 'daytime');
+    const evening = allItems.filter(i => getTimingCategory(i.time) === 'evening');
+    const asneeded = allItems.filter(i => getTimingCategory(i.time) === 'asneeded');
+
+    let html = '';
+    if (morning.length > 0) {
+      html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--sage);text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 8px;padding:0 4px">🌅 Morning</div>`;
+      html += morning.map(item => renderPillsTabCard(item)).join('');
+    }
+    if (daytime.length > 0) {
+      html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 8px;padding:0 4px">☀️ Daytime</div>`;
+      html += daytime.map(item => renderPillsTabCard(item)).join('');
+    }
+    if (evening.length > 0) {
+      html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:#5b8dee;text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 8px;padding:0 4px">🌙 Evening / Bedtime</div>`;
+      html += evening.map(item => renderPillsTabCard(item)).join('');
+    }
+    if (asneeded.length > 0) {
+      html += `<div style="font-size:11px;font-family:'DM Mono',monospace;color:#8a5a8a;text-transform:uppercase;letter-spacing:1.5px;margin:14px 0 8px;padding:0 4px">💊 As Needed</div>`;
+      html += asneeded.map(item => renderPillsTabCard(item)).join('');
+    }
+    pillsList.innerHTML = html;
+  }
+
+  // Deactivated list
+  const deactivatedList = document.getElementById('deactivatedList');
+  if (!deactivatedList) return;
+  const deactivated = buildDeactivatedList();
+  if (deactivated.length === 0) {
+    deactivatedList.innerHTML = `<p style="font-size:13px;color:var(--text3);padding:14px;text-align:center;background:var(--surface);border:1px dashed var(--border);border-radius:12px">No deactivated items.</p>`;
+  } else {
+    deactivatedList.innerHTML = deactivated.map(item => {
+      const typeBadge = item.type === 'Medication'
+        ? '<span class="tag-sm tag-amber">MED</span>'
+        : '<span class="tag-sm tag-green">SUPP</span>';
+      return `
+        <div class="card" style="padding:12px 14px;margin-bottom:6px;opacity:0.7">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:500;color:var(--text2);text-decoration:line-through">${item.name}</div>
+              <div style="font-size:11px;color:var(--text3)">${item.time} · ${item.defaultDose} ${item.doseUnit}${item.defaultDose>1?'s':''}</div>
+            </div>
+            ${typeBadge}
+            <button onclick="reactivateByName('${escapeJs(item.name)}')" style="background:var(--sage);border:none;color:white;font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;font-weight:600">Reactivate</button>
+            ${!item.isDefault ? `<button onclick="permanentlyDeleteMed('${escapeJs(item.name)}')" style="background:transparent;border:1px solid var(--rust);color:var(--rust);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer" title="Permanently delete this custom medication">🗑</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+// Pills tab specific card with deactivate button
+function renderPillsTabCard(item) {
+  const data = loadToday();
+  const taken = data.suppTaken || {};
+  const tk = taken[item.name];
+  const typeBadge = item.type === 'Medication'
+    ? '<span class="tag-sm tag-amber">MED</span>'
+    : '<span class="tag-sm tag-green">SUPP</span>';
+  const asNeededBadge = item.asNeeded ? '<span class="tag-sm" style="background:#e8e0fc;border:1px solid #c9b8f0;color:#5a3a8a">AS NEEDED</span>' : '';
+  const ingredientsText = ingredientsDisplay(item.ingredients);
+  const doseOverride = (data.doseOverrides||{})[item.name];
+  const actualDose = doseOverride !== undefined ? doseOverride : item.defaultDose;
+
+  return `
+    <div class="card" style="padding:14px 16px;margin-bottom:8px;${tk ? 'border-left:4px solid var(--sage)' : ''}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:600;color:var(--text)">${item.name}</div>
+          <div style="font-size:13px;color:var(--sage);font-weight:500;margin-top:2px">${item.time}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px"><em>${ingredientsText}</em></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Recommended: ${item.defaultDose} ${item.doseUnit}${item.defaultDose>1?'s':''}</div>
+          ${item.notes ? `<div style="font-size:11px;color:var(--gold);margin-top:6px;padding:6px 8px;background:var(--amber-bg);border-radius:6px;border-left:2px solid var(--gold)">💡 ${item.notes}</div>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">${typeBadge}${asNeededBadge}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div class="supp-check ${tk?'done':''}" onclick="toggleSuppByName('${escapeJs(item.name)}')">${tk?'✓':''}</div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Dose Taken</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="number" step="any" value="${actualDose}" onchange="updateDoseByName('${escapeJs(item.name)}',this.value)" style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--text);font-family:'DM Mono',monospace;text-align:center">
+            <span style="font-size:11px;color:var(--text2);font-family:'DM Mono',monospace">${item.doseUnit}${actualDose != 1 ? 's' : ''}</span>
+            <input class="time-taken-input" type="time" value="${taken[item.name+'__time']||''}" onchange="saveSuppTimeByName('${escapeJs(item.name)}',this.value)" title="Time taken" style="margin:0;font-size:11px">
+          </div>
+        </div>
+        <button onclick="deactivateByName('${escapeJs(item.name)}')" style="background:transparent;border:1px solid var(--border);color:var(--rust);font-size:11px;padding:5px 10px;border-radius:6px;cursor:pointer">Deactivate</button>
+      </div>
+    </div>
+  `;
 }
 
 function saveMealLog() {
@@ -1349,89 +1902,215 @@ function saveMealLog() {
   if (dinnerLog) { document.getElementById('dinnerTag').textContent = '✓ Logged'; document.getElementById('dinnerTag').className = 'tag-sm tag-green'; }
 }
 
-function updateDose(idx, val) {
+function updateDoseByName(name, val) {
   const data = loadToday();
   if (!data.doseOverrides) data.doseOverrides = {};
-  data.doseOverrides[idx] = parseFloat(val) || 0;
+  data.doseOverrides[name] = parseFloat(val) || 0;
   saveToday(data);
 }
 
-function toggleSupp(idx) {
+function saveSuppTimeByName(name, val) {
   const data = loadToday();
   if (!data.suppTaken) data.suppTaken = {};
-  data.suppTaken[idx] = !data.suppTaken[idx];
-  if (data.suppTaken[idx] && !data.suppTaken[idx+'_time']) {
-    const now = new Date();
-    data.suppTaken[idx+'_time'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  }
+  data.suppTaken[name+'__time'] = val;
   saveToday(data);
-  if (data.suppTaken[idx]) {
-    const allItems = buildAllSuppMedList();
-    const item = allItems[idx];
-    if (item) {
-      const doseOverrides = data.doseOverrides || {};
-      const actualDose = doseOverrides[idx] !== undefined ? doseOverrides[idx] : item.defaultDose;
-      queueSync('Supplements_Meds', {
-        Date: new Date().toLocaleDateString('en-US'),
-        Type: item.type,
-        Name: item.name,
-        KeyIngredient: item.keyIngredient || '',
-        DoseAmount: actualDose,
-        DoseUnit: item.doseUnit,
-        Taken: 'Yes',
-        TimeTaken: data.suppTaken[idx+'_time'] || '',
-        Notes: ''
-      });
-    }
-  }
-  renderNutrition();
-  renderEvening();
 }
 
-function addMedication() {
-  const name = document.getElementById('newMedName').value.trim();
-  const keyIngredient = document.getElementById('newMedIngredient').value.trim();
-  const dose = parseFloat(document.getElementById('newMedDose').value);
-  const unit = document.getElementById('newMedUnit').value;
-  const time = document.getElementById('newMedTime').value.trim();
-  if (!name) { alert('Please enter a medication name'); return; }
-  if (isNaN(dose) || dose <= 0) { alert('Please enter a valid dose amount'); return; }
-  const meds = getMedications();
-  meds.push({ name, keyIngredient, defaultDose: dose, doseUnit: unit, time: time || 'As prescribed', detail: '' });
-  setMedications(meds);
-  document.getElementById('newMedName').value = '';
-  document.getElementById('newMedIngredient').value = '';
-  document.getElementById('newMedDose').value = '';
-  document.getElementById('newMedTime').value = '';
-  renderNutrition();
+function toggleSuppByName(name) {
+  const data = loadToday();
+  if (!data.suppTaken) data.suppTaken = {};
+  data.suppTaken[name] = !data.suppTaken[name];
+  if (data.suppTaken[name] && !data.suppTaken[name+'__time']) {
+    const now = new Date();
+    data.suppTaken[name+'__time'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  }
+  saveToday(data);
+  // Sync to sheet if marked as taken - ONE ROW PER INGREDIENT (Option B)
+  if (data.suppTaken[name]) {
+    const allItems = buildAllSuppMedList().concat(buildDeactivatedList());
+    const item = allItems.find(i => i.name === name);
+    if (item) {
+      const doseOverrides = data.doseOverrides || {};
+      const actualDose = doseOverrides[name] !== undefined ? parseFloat(doseOverrides[name]) : item.defaultDose;
+      const timeTaken = data.suppTaken[name+'__time'] || '';
+      const today = getActiveDateString();
+      // Push one row per ingredient with multiplied amount
+      if (item.ingredients && item.ingredients.length > 0) {
+        item.ingredients.forEach(ing => {
+          const totalAmount = (parseFloat(ing.amount) || 0) * actualDose;
+          queueSync('Supplements_Meds', {
+            Date: today,
+            Type: item.type,
+            Name: item.name,
+            Ingredient: ing.name,
+            IngredientAmount: totalAmount,
+            IngredientUnit: ing.unit,
+            DoseTaken: actualDose,
+            DoseUnit: item.doseUnit,
+            TimeTaken: timeTaken,
+            Notes: ''
+          });
+        });
+      } else {
+        // Fallback for items without structured ingredients
+        queueSync('Supplements_Meds', {
+          Date: today,
+          Type: item.type,
+          Name: item.name,
+          Ingredient: '',
+          IngredientAmount: '',
+          IngredientUnit: '',
+          DoseTaken: actualDose,
+          DoseUnit: item.doseUnit,
+          TimeTaken: timeTaken,
+          Notes: ''
+        });
+      }
+    }
+  }
+  // Re-render all places that show pill status
+  renderDashboard();
   renderEvening();
+  renderPillsTab();
+}
+
+// New item type selection for Pills tab "Add" form
+let pillNewType = 'Supplement';
+function setNewItemType(type) {
+  pillNewType = type;
+  document.getElementById('addTypeSuppBtn').className = 'htl-btn' + (type === 'Supplement' ? ' htl-typical-active' : '');
+  document.getElementById('addTypeMedBtn').className = 'htl-btn' + (type === 'Medication' ? ' htl-typical-active' : '');
+}
+
+function onTimingChange() {
+  const sel = document.getElementById('newItemTiming');
+  const custom = document.getElementById('newItemCustomTime');
+  custom.style.display = sel.value === 'Custom' ? 'block' : 'none';
+}
+
+// Initialize ingredient rows in the form
+function initIngredientRows(count) {
+  const container = document.getElementById('newItemIngredientsContainer');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    addIngredientRow();
+  }
+}
+
+function addIngredientRow() {
+  const container = document.getElementById('newItemIngredientsContainer');
+  if (!container) return;
+  const rowId = 'ing_row_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+  const row = document.createElement('div');
+  row.id = rowId;
+  row.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;align-items:center';
+  row.innerHTML = `
+    <input type="text" class="ing-name" placeholder="Ingredient (e.g., Vit C)" style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px;box-sizing:border-box;min-width:0">
+    <input type="number" step="any" class="ing-amount" placeholder="Amt" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:12px;box-sizing:border-box;min-width:0">
+    <select class="ing-unit" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 6px;font-size:12px;min-width:0">
+      <option value="mg">mg</option>
+      <option value="mcg">mcg</option>
+      <option value="IU">IU</option>
+      <option value="g">g</option>
+      <option value="billion CFU">billion CFU</option>
+      <option value="million CFU">million CFU</option>
+      <option value="%DV">%DV</option>
+      <option value="blend">blend</option>
+      <option value="serving">serving</option>
+    </select>
+    <button onclick="removeIngredientRow('${rowId}')" style="background:transparent;border:1px solid var(--border);color:var(--rust);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:14px;flex-shrink:0">×</button>
+  `;
+  container.appendChild(row);
+}
+
+function removeIngredientRow(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.remove();
+}
+
+function addNewItem() {
+  const name = document.getElementById('newItemName').value.trim();
+  const dose = parseFloat(document.getElementById('newItemDose').value);
+  const unit = document.getElementById('newItemUnit').value;
+  let timing = document.getElementById('newItemTiming').value;
+  const custom = document.getElementById('newItemCustomTime').value.trim();
+  const notes = document.getElementById('newItemNotes').value.trim();
+  if (timing === 'Custom') {
+    if (!custom) { alert('Please type a custom timing or select a preset.'); return; }
+    timing = custom;
+  }
+  if (!name) { alert('Please enter a name'); return; }
+  if (isNaN(dose) || dose <= 0) { alert('Please enter a valid dose amount'); return; }
+
+  // Gather ingredients from rows
+  const ingredients = [];
+  const rows = document.querySelectorAll('#newItemIngredientsContainer > div');
+  rows.forEach(row => {
+    const ingName = row.querySelector('.ing-name').value.trim();
+    const ingAmount = parseFloat(row.querySelector('.ing-amount').value);
+    const ingUnit = row.querySelector('.ing-unit').value;
+    if (ingName && !isNaN(ingAmount) && ingAmount > 0) {
+      ingredients.push({ name: ingName, amount: ingAmount, unit: ingUnit });
+    }
+  });
+
+  const meds = getMedications();
+  meds.push({
+    name,
+    ingredients,
+    defaultDose: dose,
+    doseUnit: unit,
+    time: timing,
+    detail: '',
+    notes,
+    type: pillNewType,
+    asNeeded: (timing === 'As needed')
+  });
+  setMedications(meds);
+
+  // Clear form
+  document.getElementById('newItemName').value = '';
+  document.getElementById('newItemDose').value = '';
+  document.getElementById('newItemCustomTime').value = '';
+  document.getElementById('newItemCustomTime').style.display = 'none';
+  document.getElementById('newItemTiming').value = 'Morning (with first meal)';
+  document.getElementById('newItemNotes').value = '';
+  setNewItemType('Supplement');
+  initIngredientRows(6);
+
+  // Re-render
+  renderDashboard();
+  renderEvening();
+  renderPillsTab();
   showSaveBar();
 }
 
-function removeMedication(idx) {
-  // idx is into the combined list; the medication portion starts at SUPPLEMENTS.length
-  const medIdx = idx - SUPPLEMENTS.length;
-  if (medIdx < 0) { alert('Default supplements cannot be removed.'); return; }
-  if (!confirm('Remove this medication from your list?')) return;
-  const meds = getMedications();
-  meds.splice(medIdx, 1);
-  setMedications(meds);
-  // Also clear any "taken" state for this index going forward
-  const data = loadToday();
-  if (data.suppTaken) {
-    delete data.suppTaken[idx];
-    delete data.suppTaken[idx+'_time'];
-    saveToday(data);
-  }
-  renderNutrition();
+function deactivateByName(name) {
+  if (!confirm(`Move "${name}" to Deactivated? You can reactivate it later.`)) return;
+  deactivateItem(name);
+  renderDashboard();
   renderEvening();
+  renderPillsTab();
+  showSaveBar();
 }
 
-function saveSuppTime(i, val) {
-  const data = loadToday();
-  if (!data.suppTaken) data.suppTaken = {};
-  data.suppTaken[i+'_time'] = val;
-  saveToday(data);
+function reactivateByName(name) {
+  reactivateItem(name);
+  renderDashboard();
+  renderEvening();
+  renderPillsTab();
+  showSaveBar();
+}
+
+function permanentlyDeleteMed(name) {
+  if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+  const meds = getMedications().filter(m => m.name !== name);
+  setMedications(meds);
+  // Also remove from deactivated list
+  reactivateItem(name);
+  renderPillsTab();
+  showSaveBar();
 }
 
 function toggleRest(id) {
@@ -1444,77 +2123,12 @@ function toggleRest(id) {
 // ═══════════════════════════════════════
 // BIOMETRICS
 // ═══════════════════════════════════════
-function saveMetric(type) {
-  const inputs = { weight:'weightInput', steps:'stepsInput', hr:'hrInput', sleep:'sleepInput', hrv:'hrvInput' };
-  const units = { weight:'lbs', steps:'steps', hr:'BPM', sleep:'hrs', hrv:'ms' };
-  const labels = { weight:'Weight', steps:'Steps', hr:'RestingHR', sleep:'Sleep', hrv:'HRV' };
-  const val = parseFloat(document.getElementById(inputs[type]).value);
-  if (isNaN(val)) return;
-  saveHistory('metric_'+type, val);
-  saveToday({ ['metric_'+type]: val });
-  // Sync to Google Sheets
-  queueSync('Biometrics', {
-    Date: new Date().toLocaleDateString('en-US'),
-    Metric: labels[type],
-    Value: val,
-    Unit: units[type],
-    Notes: ''
-  });
-  renderBiometrics();
-  showSaveBar();
-}
-
-function renderBiometrics() {
-  renderChart('weightChart', 'metric_weight', 'lbs', 183, 200);
-  renderChart('stepsChart', 'metric_steps', 'steps', 9000, 5000);
-  renderWeightProgress();
-  renderStepsProgress();
-}
-
-function renderChart(containerId, histKey, unit, goalVal, startVal) {
-  const hist = loadHistory(histKey);
-  if (hist.length === 0) { document.getElementById(containerId).innerHTML = '<p style="font-size:12px;color:var(--text3)">No data yet. Start logging to see your trend.</p>'; return; }
-  const maxVal = Math.max(...hist.map(h=>h.val), goalVal||0, startVal||0);
-  const minVal = Math.min(...hist.map(h=>h.val)) * 0.97;
-  const range = maxVal - minVal || 1;
-  const bars = hist.map((h, i) => {
-    const height = Math.max(4, ((h.val - minVal) / range) * 50);
-    const isCurrent = i === hist.length - 1;
-    return `<div class="chart-bar-wrap">
-      <div class="chart-val">${unit==='steps'?Math.round(h.val/1000)+'k':h.val}</div>
-      <div class="chart-bar ${isCurrent?'current':''}" style="height:${height}px"></div>
-      <div class="chart-bar-label">${h.date}</div>
-    </div>`;
-  }).join('');
-  document.getElementById(containerId).innerHTML = `<div class="chart-bars">${bars}</div>`;
-}
-
-function renderWeightProgress() {
-  const hist = loadHistory('metric_weight');
-  if (hist.length < 2) return;
-  const start = 200, goal = 185, current = hist[hist.length-1].val;
-  const totalLoss = start - goal;
-  const achieved = Math.max(0, start - current);
-  const pct = Math.min(100, Math.round(achieved/totalLoss*100));
-  document.getElementById('weightProgress').innerHTML = `
-    <div class="goal-progress">
-      <div class="goal-row"><span>Weight loss progress</span><span>${achieved.toFixed(1)} of ${totalLoss} lbs (${pct}%)</span></div>
-      <div class="goal-bar"><div class="goal-fill fill-green" style="width:${pct}%"></div></div>
-    </div>`;
-}
-
-function renderStepsProgress() {
-  const hist = loadHistory('metric_steps');
-  if (!hist.length) return;
-  const current = hist[hist.length-1].val;
-  const goal = 9000;
-  const pct = Math.min(100, Math.round(current/goal*100));
-  document.getElementById('stepsProgress').innerHTML = `
-    <div class="goal-progress" style="margin-top:10px">
-      <div class="goal-row"><span>Step goal progress</span><span>${current.toLocaleString()} of ${goal.toLocaleString()} (${pct}%)</span></div>
-      <div class="goal-bar"><div class="goal-fill ${pct>=100?'fill-green':'fill-amber'}" style="width:${pct}%"></div></div>
-    </div>`;
-}
+// Stats tab removed — these functions kept as no-ops for backwards compatibility
+function saveMetric(type) {}
+function renderBiometrics() {}
+function renderChart() {}
+function renderWeightProgress() {}
+function renderStepsProgress() {}
 
 // ═══════════════════════════════════════
 // EVENING
@@ -1524,6 +2138,9 @@ let activeInlineTimer = null;
 function renderEvening() {
   const data = loadToday();
   const stretchDone = data.stretchDone || {};
+
+  // Evening Pills (items with evening/bedtime timing)
+  renderPillSection('eveningPillsList', 'evening', true);
 
   // Stretches
   document.getElementById('stretchList').innerHTML = STRETCHES.map((s, i) => `
@@ -1553,22 +2170,81 @@ function renderEvening() {
     </div>
   `).join('');
 
-  // Evening supplement & medication check
-  const suppTaken = data.suppTaken || {};
-  const allItems = buildAllSuppMedList();
-  document.getElementById('eveningSuppCheck').innerHTML = allItems.map((s, idx) => {
-    const typeBadge = s.type === 'Medication' ? '<span class="tag-sm tag-amber" style="margin-left:6px">MED</span>' : '';
-    return `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div class="supp-check ${suppTaken[idx]?'done':''}" onclick="toggleSupp(${idx})">${suppTaken[idx]?'✓':''}</div>
-      <div>
-        <div style="font-size:13px;font-weight:500">${s.name}${typeBadge}</div>
-        <div style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace">${s.time || ''}${suppTaken[idx+'_time']?' · Taken: '+suppTaken[idx+'_time']:''}</div>
-      </div>
-    </div>
-  `;}).join('');
+  // End of Day Verification Checklist
+  renderEndOfDayCheck();
 
-  if (data.screenTime) { document.getElementById('screenTimeInput').value = data.screenTime; updateScreenFeedback(data.screenTime); }
+  // Restore submit state for evening log
+  restoreSubmitState('eveningSubmitBtn', data.eveningSubmitted);
+
+  // Restore health events submitted state
+  for (let i = 1; i <= 3; i++) {
+    const txt = data['healthEvent'+i] || '';
+    const submitted = data['healthEvent'+i+'_submitted'];
+    const txtEl = document.getElementById('healthEvent'+i);
+    if (txtEl) txtEl.value = txt;
+    restoreSubmitState('healthEvent'+i+'Btn', submitted, 'Submit Event '+i);
+  }
+}
+
+function renderEndOfDayCheck() {
+  const el = document.getElementById('endOfDayCheck');
+  if (!el) return;
+  const data = loadToday();
+  const taken = data.suppTaken || {};
+  const allItems = buildAllSuppMedList();
+
+  // Food status
+  const lunchOk = !!data.lunchLog;
+  const dinnerOk = !!data.dinnerLog;
+  const lunchHtml = `<div style="display:flex;align-items:center;gap:8px;padding:6px 0"><span style="font-size:16px">${lunchOk?'✅':'⚠️'}</span><span style="font-size:13px">Lunch logged ${lunchOk?'<span style="color:var(--sage)">✓</span>':'<span style="color:var(--gold)">— not logged yet</span>'}</span></div>`;
+  const dinnerHtml = `<div style="display:flex;align-items:center;gap:8px;padding:6px 0"><span style="font-size:16px">${dinnerOk?'✅':'⚠️'}</span><span style="font-size:13px">Dinner logged ${dinnerOk?'<span style="color:var(--sage)">✓</span>':'<span style="color:var(--gold)">— not logged yet</span>'}</span></div>`;
+
+  // Supplement status by category
+  const morningItems = allItems.filter(i => getTimingCategory(i.time) === 'morning');
+  const daytimeItems = allItems.filter(i => getTimingCategory(i.time) === 'daytime');
+  const eveningItems = allItems.filter(i => getTimingCategory(i.time) === 'evening');
+
+  const morningTaken = morningItems.filter(i => taken[i.name]);
+  const daytimeTaken = daytimeItems.filter(i => taken[i.name]);
+  const eveningTaken = eveningItems.filter(i => taken[i.name]);
+
+  let suppHtml = '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">';
+
+  if (morningItems.length > 0) {
+    const allDone = morningTaken.length === morningItems.length;
+    suppHtml += `<div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:16px">${allDone?'✅':'⚠️'}</span>
+        <span style="font-size:13px;font-weight:600">Morning items: ${morningTaken.length}/${morningItems.length}</span>
+      </div>
+      ${morningItems.map(i => `<div style="font-size:12px;color:${taken[i.name]?'var(--sage)':'var(--text3)'};padding-left:24px;padding-top:2px">${taken[i.name]?'✓':'○'} ${i.name}${taken[i.name+'__time']?' · '+taken[i.name+'__time']:''}</div>`).join('')}
+    </div>`;
+  }
+
+  if (daytimeItems.length > 0) {
+    const allDone = daytimeTaken.length === daytimeItems.length;
+    suppHtml += `<div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:16px">${allDone?'✅':'⚠️'}</span>
+        <span style="font-size:13px;font-weight:600">Daytime items: ${daytimeTaken.length}/${daytimeItems.length}</span>
+      </div>
+      ${daytimeItems.map(i => `<div style="font-size:12px;color:${taken[i.name]?'var(--sage)':'var(--text3)'};padding-left:24px;padding-top:2px">${taken[i.name]?'✓':'○'} ${i.name}${taken[i.name+'__time']?' · '+taken[i.name+'__time']:''}</div>`).join('')}
+    </div>`;
+  }
+
+  if (eveningItems.length > 0) {
+    const allDone = eveningTaken.length === eveningItems.length;
+    suppHtml += `<div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+        <span style="font-size:16px">${allDone?'✅':'⚠️'}</span>
+        <span style="font-size:13px;font-weight:600">Evening/Bedtime items: ${eveningTaken.length}/${eveningItems.length}</span>
+      </div>
+      ${eveningItems.map(i => `<div style="font-size:12px;color:${taken[i.name]?'var(--sage)':'var(--text3)'};padding-left:24px;padding-top:2px">${taken[i.name]?'✓':'○'} ${i.name}${taken[i.name+'__time']?' · '+taken[i.name+'__time']:''}</div>`).join('')}
+    </div>`;
+  }
+  suppHtml += '</div>';
+
+  el.innerHTML = `<h3 style="font-size:14px;margin-bottom:6px">📋 Today's Status</h3>${lunchHtml}${dinnerHtml}${suppHtml}`;
 }
 
 function toggleStretch(id) {
@@ -1619,32 +2295,77 @@ function stopInlineTimer(i) {
   document.getElementById('it_'+i).classList.remove('show');
 }
 
-function saveScreenTime() {
-  const val = parseFloat(document.getElementById('screenTimeInput').value);
-  if (isNaN(val)) return;
-  saveToday({ screenTime: val });
-  updateScreenFeedback(val);
+// ═══════════════════════════════════════
+// SUBMIT BUTTON STATE FEEDBACK
+// ═══════════════════════════════════════
+// Visual feedback for any submit/save button:
+//  - 'pending' (default look)
+//  - 'saving' (in-progress)
+//  - 'submitted' (green confirmation, persists)
+function setSubmitState(btnId, state, originalLabel) {
+  const btn = document.getElementById(btnId);
+  if (!btn) return;
+  btn.dataset.originalLabel = btn.dataset.originalLabel || originalLabel || btn.textContent;
+  if (state === 'submitted') {
+    btn.textContent = '✓ Submitted';
+    btn.style.background = 'var(--sage)';
+    btn.style.color = 'white';
+    btn.style.borderColor = 'var(--sage)';
+  } else if (state === 'saving') {
+    btn.textContent = '⏳ Saving...';
+    btn.style.background = 'var(--gold)';
+    btn.style.color = 'white';
+    btn.style.borderColor = 'var(--gold)';
+  } else {
+    btn.textContent = btn.dataset.originalLabel;
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.style.borderColor = '';
+  }
 }
 
-function updateScreenFeedback(val) {
-  const el = document.getElementById('screenTimeFeedback');
-  if (val <= 2) { el.textContent = '🟢 Excellent — well within target range (goal: ≤2.5 hrs personal)'; el.style.color = 'var(--sage)'; }
-  else if (val <= 3) { el.textContent = '🟡 Good — approaching target. Try to stay under 2.5 hrs tomorrow.'; el.style.color = 'var(--gold)'; }
-  else { el.textContent = '🔴 Above target. Consider replacing 30 min of screen time with your post-dinner walk or stretching routine.'; el.style.color = 'var(--rust)'; }
+function restoreSubmitState(btnId, isSubmitted, originalLabel) {
+  if (isSubmitted) setSubmitState(btnId, 'submitted', originalLabel);
+  else setSubmitState(btnId, 'pending', originalLabel);
+}
+
+// ═══════════════════════════════════════
+// HEALTH EVENTS
+// ═══════════════════════════════════════
+function submitHealthEvent(slot) {
+  const txt = document.getElementById('healthEvent'+slot).value.trim();
+  if (!txt) {
+    alert('Please enter some text for Event '+slot+' before submitting.');
+    return;
+  }
+  setSubmitState('healthEvent'+slot+'Btn', 'saving', 'Submit Event '+slot);
+  // Save to today's data and sync
+  const data = loadToday();
+  data['healthEvent'+slot] = txt;
+  data['healthEvent'+slot+'_submitted'] = true;
+  saveToday(data);
+  queueSync('Health_Events', {
+    Date: getActiveDateString(),
+    Event: txt
+  });
+  // Show submitted state shortly after
+  setTimeout(() => setSubmitState('healthEvent'+slot+'Btn', 'submitted', 'Submit Event '+slot), 250);
+  showSaveBar();
 }
 
 function submitEveningLog() {
   const data = loadToday();
   const suppTaken = data.suppTaken || {};
   const allItems = buildAllSuppMedList();
-  const suppCount = allItems.filter((s,idx) => suppTaken[idx]).length;
+  const suppCount = allItems.filter(s => suppTaken[s.name]).length;
   const stretchCount = Object.values(data.stretchDone||{}).filter(Boolean).length;
   saveToday({ eveningSubmitted: true });
   // Sync nutrition entries
-  const today = new Date().toLocaleDateString('en-US');
+  const today = getActiveDateString();
   if (data.lunchLog) queueSync('Nutrition', { Date: today, Meal: 'Lunch', Details: data.lunchLog, Restaurant: '', Notes: '' });
   if (data.dinnerLog) queueSync('Nutrition', { Date: today, Meal: 'Dinner', Details: data.dinnerLog, Restaurant: '', Notes: '' });
   if (data.preworkoutLog) queueSync('Nutrition', { Date: today, Meal: 'Pre/Post Workout', Details: data.preworkoutLog, Restaurant: '', Notes: '' });
+  setSubmitState('eveningSubmitBtn', 'submitted', '✓ Submit Evening Log');
   alert(`✅ Evening log saved!\n\nSupplements/Meds taken: ${suppCount}/${allItems.length}\nStretches completed: ${stretchCount}/${STRETCHES.length}\n\nSleep well — your body recovers and repairs overnight. 💪`);
 }
 
@@ -1662,11 +2383,14 @@ function renderSettings() {
 // ═══════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════
+updateDateUI();
 renderDashboard();
 renderNutrition();
-renderBiometrics();
 renderEvening();
+renderPillsTab();
 renderSettings();
+setNewItemType('Supplement');
+initIngredientRows(6);
 </script>
 </body>
 </html>
