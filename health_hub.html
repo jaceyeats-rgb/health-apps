@@ -1350,24 +1350,114 @@ function toggleAutoSync() {
 }
 
 async function sendToSheet(tabName, rowData) {
+  // Single-row sync (backwards compatible). Use syncSequential for multi-row reliability.
   const url = getSyncUrl();
-  if (!url) return { success: false, queued: false, reason: 'no_url' };
+  if (!url) return { success: false, reason: 'no_url' };
+  const clientId = generateClientId();
+  const payload = { action:'append', tab: tabName, data: rowData, timestamp: new Date().toISOString(), clientId: clientId };
+  return await postWithRetry(url, payload, clientId);
+}
 
-  const payload = { tab: tabName, data: rowData, timestamp: new Date().toISOString() };
+function generateClientId() {
+  return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
 
+// Core fetch with retry — tries CORS first to read response, falls back to no-cors
+async function postWithRetry(url, payload, clientId, maxAttempts) {
+  maxAttempts = maxAttempts || 3;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Try CORS mode first — we can read the response and confirm success
+      const response = await fetch(url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.success || parsed.deduped) {
+          return { success: true, deduped: !!parsed.deduped, clientId: clientId, attempt: attempt };
+        }
+        lastErr = parsed.error || 'unknown_error';
+      } catch(e) {
+        lastErr = 'parse_error: ' + text.slice(0, 100);
+      }
+    } catch (corsErr) {
+      // CORS blocked — fall back to no-cors (fire-and-forget, can't read response)
+      try {
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        // We can't verify directly, but the request was sent. Idempotency on the server prevents dupes.
+        return { success: true, unverified: true, clientId: clientId, attempt: attempt };
+      } catch (e) {
+        lastErr = e.message;
+      }
+    }
+    // Brief backoff before retry
+    if (attempt < maxAttempts) {
+      await sleep(300 * attempt);
+    }
+  }
+  // All attempts failed — queue for manual retry
+  const queue = getQueue();
+  queue.push(payload);
+  setQueue(queue);
+  return { success: false, queued: true, reason: lastErr, clientId: clientId };
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Sequential sync of multiple items with verification & retry per item
+// items: [{ tab, data }, ...]
+// Returns { successful: n, failed: n, results: [...] }
+async function syncSequential(items, statusCallback) {
+  const results = [];
+  let successful = 0, failed = 0;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const clientId = generateClientId();
+    const payload = {
+      action: 'append',
+      tab: item.tab,
+      data: item.data,
+      timestamp: new Date().toISOString(),
+      clientId: clientId
+    };
+    if (statusCallback) statusCallback(i + 1, items.length, 'sending');
+    const result = await postWithRetry(getSyncUrl(), payload, clientId);
+    results.push({ ...result, item: item });
+    if (result.success) successful++;
+    else failed++;
+    // Small delay between calls so we don't hammer Apps Script
+    if (i < items.length - 1) await sleep(150);
+  }
+  if (statusCallback) statusCallback(items.length, items.length, 'done');
+  return { successful: successful, failed: failed, results: results };
+}
+
+// Try to verify a count of rows on the server for today's date — used for end-of-sync confirmation
+async function verifyRowCount(tabName, dateStr, expectedCount) {
+  const url = getSyncUrl();
+  if (!url) return { verified: false, reason: 'no_url' };
   try {
     const response = await fetch(url, {
       method: 'POST',
-      mode: 'no-cors',
+      mode: 'cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ action: 'count', tab: tabName, date: dateStr })
     });
-    return { success: true, queued: false };
-  } catch (err) {
-    const queue = getQueue();
-    queue.push(payload);
-    setQueue(queue);
-    return { success: false, queued: true, reason: err.message };
+    const text = await response.text();
+    const parsed = JSON.parse(text);
+    return { verified: true, actualCount: parsed.count, matched: parsed.count >= expectedCount };
+  } catch (e) {
+    return { verified: false, reason: e.message };
   }
 }
 
@@ -1383,15 +1473,15 @@ async function retryQueue() {
   const queue = getQueue();
   if (queue.length === 0) { setSyncStatus('No pending entries to retry.', 'green'); return; }
   setSyncStatus(`Retrying ${queue.length} entries...`, 'amber');
-  const url = getSyncUrl();
-  if (!url) { setSyncStatus('⚠️ No sync URL configured.', 'red'); return; }
+  if (!getSyncUrl()) { setSyncStatus('⚠️ No sync URL configured.', 'red'); return; }
   let successCount = 0;
   const newQueue = [];
   for (const item of queue) {
-    try {
-      await fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(item) });
-      successCount++;
-    } catch(e) { newQueue.push(item); }
+    const clientId = item.clientId || generateClientId();
+    const result = await postWithRetry(getSyncUrl(), item, clientId);
+    if (result.success) successCount++;
+    else newQueue.push(item);
+    await sleep(150);
   }
   setQueue(newQueue);
   setSyncStatus(`✓ Synced ${successCount} entries. ${newQueue.length} still pending.`, 'green');
@@ -1412,7 +1502,7 @@ async function diagTest(tabName, rowData, btn) {
   el.style.display = 'block';
   el.textContent = 'Sending to ' + tabName + '...';
   btn.disabled = true;
-  const payload = { tab: tabName, data: rowData, timestamp: new Date().toISOString() };
+  const payload = { action: 'append', tab: tabName, data: rowData, timestamp: new Date().toISOString(), clientId: generateClientId() };
   try {
     // Use cors mode so we can read the actual response
     const response = await fetch(url, {
@@ -1675,7 +1765,7 @@ function setSleepClassLocal(key, label, classification) {
   setSubmitState('saveSleepBtn', 'pending', '💾 Save Sleep Data');
 }
 
-function saveSleepData() {
+async function saveSleepData() {
   const data = loadToday();
   const sleepClass = data.sleepClass || {};
   const sleepLabels = data.sleepLabels || {};
@@ -1684,23 +1774,25 @@ function saveSleepData() {
     alert('Classify at least one sleep metric before saving.');
     return;
   }
-  // Sync each classification to Biometrics with yesterday's date (relative to active date)
   const yesterday = getYesterdayString();
-  let count = 0;
-  const syncPromises = keys.map(key => {
-    const label = sleepLabels[key] || key;
-    count++;
-    return sendToSheet('Biometrics', {
+  const items = keys.map(key => ({
+    tab: 'Biometrics',
+    data: {
       Date: yesterday,
-      Metric: 'Sleep_' + label.replace(/ /g,''),
+      Metric: 'Sleep_' + (sleepLabels[key] || key).replace(/ /g,''),
       Value: sleepClass[key],
       Unit: 'classification',
       Notes: ''
-    });
-  });
-  Promise.all(syncPromises).then(() => {
-    setSubmitState('saveSleepBtn', 'submitted', '💾 Save Sleep Data');
-  });
+    }
+  }));
+  setSubmitState('saveSleepBtn', 'saving', '💾 Save Sleep Data');
+  const result = await syncSequential(items);
+  if (result.failed === 0) {
+    setSubmitState('saveSleepBtn', 'submitted', `💾 Save Sleep Data`);
+  } else {
+    setSubmitState('saveSleepBtn', 'pending', '💾 Save Sleep Data');
+    alert(`⚠️ Synced ${result.successful}/${items.length} sleep metrics. ${result.failed} failed and queued for retry. Open Sync tab and tap "Retry Failed".`);
+  }
   showSaveBar();
 }
 
@@ -1967,20 +2059,22 @@ function updateDoseByName(name, val) {
   saveToday(data);
 }
 
-function toggleSuppByName(name) {
+async function toggleSuppByName(name) {
   const data = loadToday();
   if (!data.suppTaken) data.suppTaken = {};
   data.suppTaken[name] = !data.suppTaken[name];
   if (data.suppTaken[name]) {
-    // Always stamp current time on submit (never use a stale stored value)
     const now = new Date();
     data.suppTaken[name+'__time'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   } else {
-    // Clear time when un-submitting
     delete data.suppTaken[name+'__time'];
   }
   saveToday(data);
-  // Sync to sheet if marked as taken - ONE ROW PER INGREDIENT (Option B)
+  // Re-render immediately so UI feels responsive
+  renderDashboard();
+  renderEvening();
+  renderPillsTab();
+  // Sync if marked as taken - ONE ROW PER INGREDIENT (Option B), sequential for reliability
   if (data.suppTaken[name]) {
     const allItems = buildAllSuppMedList().concat(buildDeactivatedList());
     const item = allItems.find(i => i.name === name);
@@ -1989,42 +2083,36 @@ function toggleSuppByName(name) {
       const actualDose = doseOverrides[name] !== undefined ? parseFloat(doseOverrides[name]) : item.defaultDose;
       const timeTaken = data.suppTaken[name+'__time'] || '';
       const today = getActiveDateString();
+      let items;
       if (item.ingredients && item.ingredients.length > 0) {
-        item.ingredients.forEach(ing => {
-          const totalAmount = (parseFloat(ing.amount) || 0) * actualDose;
-          sendToSheet('Supplements_Meds', {
-            Date: today,
-            Type: item.type,
-            Name: item.name,
+        items = item.ingredients.map(ing => ({
+          tab: 'Supplements_Meds',
+          data: {
+            Date: today, Type: item.type, Name: item.name,
             Ingredient: ing.name,
-            IngredientAmount: totalAmount,
+            IngredientAmount: (parseFloat(ing.amount) || 0) * actualDose,
             IngredientUnit: ing.unit,
-            DoseTaken: actualDose,
-            DoseUnit: item.doseUnit,
-            TimeTaken: timeTaken,
-            Notes: ''
-          });
-        });
+            DoseTaken: actualDose, DoseUnit: item.doseUnit,
+            TimeTaken: timeTaken, Notes: ''
+          }
+        }));
       } else {
-        sendToSheet('Supplements_Meds', {
-          Date: today,
-          Type: item.type,
-          Name: item.name,
-          Ingredient: '',
-          IngredientAmount: '',
-          IngredientUnit: '',
-          DoseTaken: actualDose,
-          DoseUnit: item.doseUnit,
-          TimeTaken: timeTaken,
-          Notes: ''
-        });
+        items = [{
+          tab: 'Supplements_Meds',
+          data: {
+            Date: today, Type: item.type, Name: item.name,
+            Ingredient: '', IngredientAmount: '', IngredientUnit: '',
+            DoseTaken: actualDose, DoseUnit: item.doseUnit,
+            TimeTaken: timeTaken, Notes: ''
+          }
+        }];
+      }
+      const result = await syncSequential(items);
+      if (result.failed > 0) {
+        alert(`⚠️ Synced ${result.successful}/${items.length} ingredients for ${item.name}. ${result.failed} failed — open Sync tab to retry.`);
       }
     }
   }
-  // Re-render all places that show pill status
-  renderDashboard();
-  renderEvening();
-  renderPillsTab();
 }
 
 // New item type selection for Pills tab "Add" form
