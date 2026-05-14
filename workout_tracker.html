@@ -1347,26 +1347,81 @@ function saveSyncWorkout() {
   document.getElementById('swSyncStatus').style.color = 'var(--accent)';
 }
 
+function generateClientIdW() {
+  return Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+function sleepW(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function postWithRetryW(url, payload, clientId, maxAttempts) {
+  maxAttempts = maxAttempts || 3;
+  let lastErr = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        mode: 'cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      const text = await response.text();
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.success || parsed.deduped) {
+          return { success: true, deduped: !!parsed.deduped, clientId: clientId, attempt: attempt };
+        }
+        lastErr = parsed.error || 'unknown_error';
+      } catch(e) { lastErr = 'parse_error'; }
+    } catch (corsErr) {
+      try {
+        await fetch(url, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        return { success: true, unverified: true, clientId: clientId, attempt: attempt };
+      } catch (e) { lastErr = e.message; }
+    }
+    if (attempt < maxAttempts) await sleepW(300 * attempt);
+  }
+  // Queue for manual retry
+  try {
+    const q = JSON.parse(localStorage.getItem('sync_queue')||'[]');
+    q.push(payload);
+    localStorage.setItem('sync_queue', JSON.stringify(q));
+  } catch(err) {}
+  return { success: false, queued: true, reason: lastErr, clientId: clientId };
+}
+
 async function sendToSheetW(tabName, rowData) {
   const url = getSyncUrlW();
   if (!url) return { success: false };
-  try {
-    await fetch(url, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ tab: tabName, data: rowData, timestamp: new Date().toISOString() })
-    });
-    return { success: true };
-  } catch (e) {
-    // Queue for retry
-    try {
-      const q = JSON.parse(localStorage.getItem('sync_queue')||'[]');
-      q.push({ tab: tabName, data: rowData, timestamp: new Date().toISOString() });
-      localStorage.setItem('sync_queue', JSON.stringify(q));
-    } catch(err) {}
-    return { success: false };
+  const clientId = generateClientIdW();
+  return await postWithRetryW(url, {
+    action: 'append', tab: tabName, data: rowData,
+    timestamp: new Date().toISOString(), clientId: clientId
+  }, clientId);
+}
+
+async function syncSequentialW(items, statusCallback) {
+  const url = getSyncUrlW();
+  if (!url) return { successful: 0, failed: items.length };
+  const results = [];
+  let successful = 0, failed = 0;
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const clientId = generateClientIdW();
+    if (statusCallback) statusCallback(i + 1, items.length);
+    const result = await postWithRetryW(url, {
+      action: 'append', tab: item.tab, data: item.data,
+      timestamp: new Date().toISOString(), clientId: clientId
+    }, clientId);
+    results.push(result);
+    if (result.success) successful++;
+    else failed++;
+    if (i < items.length - 1) await sleepW(150);
   }
+  return { successful: successful, failed: failed, results: results };
 }
 
 async function testSyncWorkout() {
@@ -1378,20 +1433,21 @@ async function testSyncWorkout() {
   }
   document.getElementById('swSyncStatus').textContent = 'Sending test...';
   document.getElementById('swSyncStatus').style.color = 'var(--accent2)';
-  await sendToSheetW('Workouts', {
+  const result = await sendToSheetW('Workouts', {
     Date: getActiveDateString(),
-    Week: 'TEST',
-    Day: 'TEST',
+    Week: 'TEST', Day: 'TEST',
     WorkoutTitle: 'Connection Test',
     Exercise: 'TEST_CONNECTION',
-    Set: '',
-    Reps: '',
-    Weight: '',
-    Duration: '',
+    Set: '', Reps: '', Weight: '', Duration: '',
     Notes: 'Test entry — safe to delete'
   });
-  document.getElementById('swSyncStatus').textContent = '✓ Test sent! Check the Workouts tab in your Sheet.';
-  document.getElementById('swSyncStatus').style.color = 'var(--accent)';
+  if (result.success) {
+    document.getElementById('swSyncStatus').textContent = '✓ Test sent! Check the Workouts tab in your Sheet.';
+    document.getElementById('swSyncStatus').style.color = 'var(--accent)';
+  } else {
+    document.getElementById('swSyncStatus').textContent = '⚠️ Test failed: ' + (result.reason || 'unknown');
+    document.getElementById('swSyncStatus').style.color = 'var(--red)';
+  }
 }
 
 // Override completeWorkout to push all set data to Google Sheets
@@ -1403,7 +1459,8 @@ completeWorkout = async function() {
   const duration = formatSwTime(swSeconds);
 
   if (getAutoSyncW() && getSyncUrlW()) {
-    // Push one row per set per exercise
+    // Build all rows as items for sequential sync
+    const items = [];
     for (let i = 0; i < workout.exercises.length; i++) {
       const ex = workout.exercises[i];
       const exKey = `ex_${i}`;
@@ -1413,50 +1470,36 @@ completeWorkout = async function() {
       for (let s = 1; s <= setCount; s++) {
         const sd = sets[s];
         if (sd && (sd.weight || sd.reps || sd.done)) {
-          await sendToSheetW('Workouts', {
-            Date: today,
-            Week: currentWeek,
-            Day: DAY_LABELS[currentDayIdx],
-            WorkoutTitle: workout.title,
-            Exercise: ex.name,
-            Set: s,
-            Reps: sd.reps || ex.reps || '',
-            Weight: sd.weight || '',
-            Duration: '',
-            Notes: completedExercises[exKey] ? 'Completed' : ''
-          });
+          items.push({ tab: 'Workouts', data: {
+            Date: today, Week: currentWeek, Day: DAY_LABELS[currentDayIdx],
+            WorkoutTitle: workout.title, Exercise: ex.name,
+            Set: s, Reps: sd.reps || ex.reps || '', Weight: sd.weight || '',
+            Duration: '', Notes: completedExercises[exKey] ? 'Completed' : ''
+          }});
           pushedAny = true;
         }
       }
-      // If no set data but exercise was completed, push a single row
       if (!pushedAny && completedExercises[exKey]) {
-        await sendToSheetW('Workouts', {
-          Date: today,
-          Week: currentWeek,
-          Day: DAY_LABELS[currentDayIdx],
-          WorkoutTitle: workout.title,
-          Exercise: ex.name,
-          Set: '',
-          Reps: ex.reps || '',
-          Weight: '',
-          Duration: '',
+        items.push({ tab: 'Workouts', data: {
+          Date: today, Week: currentWeek, Day: DAY_LABELS[currentDayIdx],
+          WorkoutTitle: workout.title, Exercise: ex.name,
+          Set: '', Reps: ex.reps || '', Weight: '', Duration: '',
           Notes: 'Completed (no set data logged)'
-        });
+        }});
       }
     }
     // Summary row
-    await sendToSheetW('Workouts', {
-      Date: today,
-      Week: currentWeek,
-      Day: DAY_LABELS[currentDayIdx],
+    items.push({ tab: 'Workouts', data: {
+      Date: today, Week: currentWeek, Day: DAY_LABELS[currentDayIdx],
       WorkoutTitle: workout.title + ' [SUMMARY]',
-      Exercise: '---',
-      Set: '',
-      Reps: '',
-      Weight: '',
-      Duration: duration,
-      Notes: workoutNotes || ''
-    });
+      Exercise: '---', Set: '', Reps: '', Weight: '',
+      Duration: duration, Notes: workoutNotes || ''
+    }});
+
+    const result = await syncSequentialW(items);
+    if (result.failed > 0) {
+      alert(`⚠️ Synced ${result.successful}/${items.length} workout rows. ${result.failed} failed. Open Sync panel to retry.`);
+    }
   }
 
   _origCompleteWorkout();
